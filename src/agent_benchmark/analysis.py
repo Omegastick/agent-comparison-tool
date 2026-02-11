@@ -1,11 +1,61 @@
 """Analysis and report generation for benchmark results."""
 
 import json
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .metrics import RunMetrics
+
+
+ANALYSIS_SYSTEM_PROMPT = """You are analyzing AI coding agent benchmark results.
+
+## Directory Structure
+Your working directory is /workspace/results which contains:
+- config.toml: Original benchmark configuration
+- {agent-id}-{run-number}/: Individual run directories containing:
+  - metrics.json: Quantitative metrics (duration, exit_code, plan stats)
+  - .benchmark/run.log: Agent execution log
+  - repo/: Repository state after agent execution
+    - .specify/specs/*/plan.md: Generated plan (if created)
+
+## Metrics Available
+Each run's metrics.json contains:
+- run_id, agent_id: Identifiers
+- exit_code: 0 = success
+- duration_seconds: Execution time
+- has_commits: Whether agent made git commits
+- git_diff: files_changed, insertions, deletions
+- plan: total_lines, sections, tasks, files_referenced
+
+## Your Approach
+1. First, list all run directories to understand what needs to be analyzed
+2. Create a todo list of tasks - one task per run directory to inspect
+3. For each run directory:
+   - Read metrics.json for quantitative data
+   - Read the generated plan if it exists
+   - Note key observations
+4. After inspecting all runs, synthesize your findings
+5. Write the output files, iterating until complete
+
+## Output Files
+You must write two files:
+
+1. /workspace/results/analysis.md - A well-structured markdown report with:
+   - Executive Summary (2-3 sentences)
+   - Agent-by-Agent Analysis (detailed qualitative analysis)
+   - Comparative Rankings
+   - Notable Observations
+
+2. /workspace/results/stats.json - A JSON file with key statistics:
+   - experiment_name: Name from config
+   - total_runs: Number of runs
+   - agents: Object with per-agent stats (success_rate, avg_duration, etc.)
+   - rankings: Ordered list of agents by performance
+   - Any other relevant aggregate statistics
+
+## User Criteria
+The user will provide specific criteria to evaluate. Focus your analysis on those criteria.
+"""
 
 
 @dataclass
@@ -125,122 +175,55 @@ def analyze_results(results_path: Path) -> ExperimentAnalysis:
     return analysis
 
 
-def generate_report(analysis: ExperimentAnalysis, output_path: Path) -> Path:
-    """Generate a Markdown report from the analysis."""
-    lines = [
-        f"# Experiment Analysis: {analysis.experiment_name}",
-        "",
-        f"Results path: `{analysis.results_path}`",
-        "",
-        "## Summary",
-        "",
-        f"- Total runs: {len(analysis.all_metrics)}",
-        f"- Agents tested: {len(analysis.agent_summaries)}",
-        "",
-        "## Agent Performance",
-        "",
-        "| Agent | Runs | Success | Avg Duration | Avg Plan Lines | Avg Sections |",
-        "|-------|------|---------|--------------|----------------|--------------|",
-    ]
+def run_ai_analysis(
+    results_path: Path,
+    model: str = "anthropic/claude-opus-4-5",
+    prompt: str | None = None,
+) -> bool:
+    """Run OpenCode in a container to analyze results and write analysis.md.
 
-    for summary in analysis.agent_summaries.values():
-        lines.append(
-            f"| {summary.agent_id} | {summary.total_runs} | "
-            f"{summary.successful_runs}/{summary.total_runs} | "
-            f"{summary.avg_duration:.1f}s | "
-            f"{summary.avg_plan_lines:.0f} | "
-            f"{summary.avg_plan_sections:.0f} |"
-        )
+    The agent writes directly to results_path/analysis.md.
 
-    lines.extend([
-        "",
-        "## Individual Runs",
-        "",
-    ])
+    Args:
+        results_path: Path to the results directory to analyze.
+        model: Model to use for analysis.
+        prompt: Custom analysis prompt. If None, uses a default prompt.
 
-    for metrics in sorted(analysis.all_metrics, key=lambda m: m.run_id):
-        status = "Success" if metrics.exit_code == 0 else f"Failed (exit {metrics.exit_code})"
-        lines.extend([
-            f"### {metrics.run_id}",
-            "",
-            f"- Status: {status}",
-            f"- Duration: {metrics.duration_seconds:.1f}s",
-            f"- Has commits: {metrics.has_commits}",
-            f"- Plan lines: {metrics.plan.total_lines}",
-            f"- Plan sections: {metrics.plan.sections}",
-            f"- Plan tasks: {metrics.plan.tasks}",
-        ])
+    Returns:
+        True if analysis succeeded, False otherwise.
+    """
+    from .container import AnalysisContainerConfig, ContainerManager
 
-        if metrics.git_diff.files_changed > 0:
-            lines.append(
-                f"- Git changes: {metrics.git_diff.files_changed} files, "
-                f"+{metrics.git_diff.insertions}/-{metrics.git_diff.deletions}"
-            )
-
-        if metrics.error:
-            lines.append(f"- Error: {metrics.error}")
-
-        lines.append("")
-
-    if analysis.comparison_notes:
-        lines.extend([
-            "## AI Analysis Notes",
-            "",
-            analysis.comparison_notes,
-            "",
-        ])
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(lines))
-
-    json_path = output_path.with_suffix(".json")
-    json_data = {
-        "experiment_name": analysis.experiment_name,
-        "results_path": str(analysis.results_path),
-        "agent_summaries": {
-            agent_id: {
-                "agent_id": s.agent_id,
-                "total_runs": s.total_runs,
-                "successful_runs": s.successful_runs,
-                "failed_runs": s.failed_runs,
-                "avg_duration": s.avg_duration,
-                "avg_plan_lines": s.avg_plan_lines,
-                "avg_plan_sections": s.avg_plan_sections,
-                "total_tokens": s.total_tokens,
-            }
-            for agent_id, s in analysis.agent_summaries.items()
-        },
-        "runs": [m.to_dict() for m in analysis.all_metrics],
-    }
-    json_path.write_text(json.dumps(json_data, indent=2))
-
-    return output_path
-
-
-def run_ai_analysis(results_path: Path, opencode_path: str = "opencode") -> str:
-    """Run OpenCode to analyze the results and generate comparison notes."""
-    prompt = f"""Analyze the benchmark results in {results_path}.
-
-Compare the plans generated by each agent across all runs. Consider:
-1. Completeness: Did each agent address all requirements?
+    if prompt is None:
+        prompt = """Compare the plans generated by each agent. Consider:
+1. Completeness: Did each agent address all spec requirements?
 2. Accuracy: Correct interpretation of the spec?
 3. Consistency: How much variance between runs of the same agent?
-4. Quality: Overall plan quality and feasibility
+4. Quality: Overall plan quality and feasibility"""
 
-Provide a structured comparison report."""
+    config = AnalysisContainerConfig(
+        results_path=results_path.resolve(),
+        model=model,
+        prompt=prompt,
+        system_prompt=ANALYSIS_SYSTEM_PROMPT,
+        timeout_seconds=600,
+    )
 
+    manager = ContainerManager()
     try:
-        result = subprocess.run(
-            [opencode_path, "--prompt", prompt, "--yes"],
-            cwd=results_path,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        return result.stdout
-    except subprocess.TimeoutExpired:
-        return "AI analysis timed out."
-    except FileNotFoundError:
-        return "OpenCode not found. Install it to enable AI analysis."
+        result = manager.run_analysis(config)
+
+        if result.error:
+            print(f"AI analysis failed: {result.error}")
+            return False
+
+        if result.exit_code != 0:
+            print(f"AI analysis failed with exit code {result.exit_code}")
+            return False
+
+        return True
     except Exception as e:
-        return f"AI analysis failed: {e}"
+        print(f"AI analysis failed: {e}")
+        return False
+    finally:
+        manager.cleanup()

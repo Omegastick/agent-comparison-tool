@@ -6,7 +6,6 @@ set -e
 # - REPO_COMMIT: Commit hash to checkout (optional)
 # - PROMPT_FILE: Path to prompt file within repo
 # - PROMPT_TEXT: Inline prompt text (alternative to PROMPT_FILE)
-# - OPENCODE_AGENT: Agent to use (optional)
 # - OPENCODE_MODEL: Model to use (optional)
 # - OPENCODE_EXTRA_ARGS: Extra arguments for opencode (optional)
 # - RUN_ID: Unique identifier for this run
@@ -52,9 +51,6 @@ else
 fi
 
 OPENCODE_ARGS=()
-if [ -n "$OPENCODE_AGENT" ]; then
-    OPENCODE_ARGS+=(--agent "$OPENCODE_AGENT")
-fi
 if [ -n "$OPENCODE_MODEL" ]; then
     OPENCODE_ARGS+=(-m "$OPENCODE_MODEL")
 fi
@@ -66,7 +62,7 @@ fi
 echo "Running: opencode run ${OPENCODE_ARGS[*]}" | tee -a "$LOG_FILE"
 START_TIME=$(date +%s)
 
-opencode run "$PROMPT" "${OPENCODE_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
+opencode run --print-logs "$PROMPT" "${OPENCODE_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
 END_TIME=$(date +%s)

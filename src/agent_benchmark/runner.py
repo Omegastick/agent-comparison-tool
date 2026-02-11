@@ -44,6 +44,9 @@ class ExperimentRunner:
         run_configs = self._create_run_configs()
         total_runs = len(run_configs)
 
+        print(f"Temp directory: {self._temp_dir}")
+        print()
+
         self.display.start(self.config.experiment.name, total_runs)
 
         for run_id, agent_id, run_num, _ in run_configs:
@@ -79,7 +82,6 @@ class ExperimentRunner:
                     repo_commit=self.config.target.commit,
                     prompt_file=self.config.prompt.file,
                     prompt_text=self.config.prompt.text,
-                    agent=agent.agent,
                     model=agent.model,
                     extra_args=agent.extra_args,
                     timeout_seconds=timeout,

@@ -1,7 +1,6 @@
 """Configuration models for experiment files."""
 
 from pathlib import Path
-from typing import Literal
 
 import tomli
 from pydantic import BaseModel, Field, model_validator
@@ -53,10 +52,15 @@ class AgentConfig(BaseModel):
     """Agent configuration."""
 
     id: str
-    type: Literal["opencode"]
-    agent: str | None = None
     model: str | None = None
     extra_args: list[str] = Field(default_factory=list)
+
+
+class AnalysisConfig(BaseModel):
+    """AI analysis configuration."""
+
+    model: str = "anthropic/claude-opus-4-5"
+    prompt: str = ""
 
 
 class BenchmarkConfig(BaseModel):
@@ -67,6 +71,7 @@ class BenchmarkConfig(BaseModel):
     prompt: PromptConfig
     settings: SettingsConfig = Field(default_factory=SettingsConfig)
     agents: list[AgentConfig]
+    analysis: AnalysisConfig | None = None
 
     @model_validator(mode="after")
     def check_agents(self) -> "BenchmarkConfig":

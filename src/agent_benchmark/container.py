@@ -21,7 +21,6 @@ class ContainerConfig:
     repo_commit: str | None
     prompt_file: str | None
     prompt_text: str | None
-    agent: str | None
     model: str | None
     extra_args: list[str]
     timeout_seconds: int
@@ -36,6 +35,27 @@ class ContainerResult:
     exit_code: int
     logs: str
     workspace_path: Path
+    error: str | None = None
+
+
+@dataclass
+class AnalysisContainerConfig:
+    """Configuration for running analysis in a container."""
+
+    results_path: Path
+    model: str
+    prompt: str
+    system_prompt: str
+    timeout_seconds: int = 600
+
+
+@dataclass
+class AnalysisResult:
+    """Result from an analysis container run."""
+
+    exit_code: int
+    logs: str
+    output: str
     error: str | None = None
 
 
@@ -83,8 +103,6 @@ class ContainerManager:
             env["PROMPT_FILE"] = config.prompt_file
         if config.prompt_text:
             env["PROMPT_TEXT"] = config.prompt_text
-        if config.agent:
-            env["OPENCODE_AGENT"] = config.agent
         if config.model:
             env["OPENCODE_MODEL"] = config.model
         if config.extra_args:
@@ -147,6 +165,105 @@ class ContainerManager:
                 except Exception as e:
                     logger.warning("Failed to remove container %s: %s", config.run_id, e)
                 del self._containers[config.run_id]
+
+    def run_analysis(
+        self, config: AnalysisContainerConfig, stream_output: bool = True
+    ) -> AnalysisResult:
+        """Run an analysis container with the given configuration.
+
+        Args:
+            config: Configuration for the analysis run.
+            stream_output: If True, stream container output to stdout in real-time.
+        """
+        import sys
+        import tempfile
+
+        self.ensure_image()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            system_prompt_file = temp_path / "system-prompt.txt"
+            system_prompt_file.write_text(config.system_prompt)
+
+            env = {
+                "ANALYSIS_PROMPT": config.prompt,
+            }
+            if config.model:
+                env["OPENCODE_MODEL"] = config.model
+
+            auth_path = Path.home() / ".local/share/opencode/auth.json"
+            volumes = {
+                str(config.results_path): {"bind": "/workspace/results", "mode": "rw"},
+                str(system_prompt_file): {
+                    "bind": "/workspace/system-prompt.txt",
+                    "mode": "ro",
+                },
+            }
+            if auth_path.exists():
+                volumes[str(auth_path)] = {
+                    "bind": "/root/.local/share/opencode/auth.json",
+                    "mode": "ro",
+                }
+
+            container_id = f"analysis-{id(config)}"
+            all_logs: list[str] = []
+
+            try:
+                container = self.client.containers.run(
+                    self.IMAGE_NAME,
+                    entrypoint="/analyze-entrypoint.sh",
+                    environment=env,
+                    volumes=volumes,
+                    detach=True,
+                    mem_limit="4g",
+                )
+                self._containers[container_id] = container
+
+                if stream_output:
+                    for chunk in container.logs(stream=True, follow=True):
+                        text = chunk.decode("utf-8")
+                        all_logs.append(text)
+                        sys.stdout.write(text)
+                        sys.stdout.flush()
+
+                result = container.wait(timeout=config.timeout_seconds)
+                exit_code = result.get("StatusCode", 1)
+
+                logs = "".join(all_logs) if all_logs else container.logs().decode("utf-8")
+
+                return AnalysisResult(
+                    exit_code=exit_code,
+                    logs=logs,
+                    output="",
+                )
+
+            except ContainerError as e:
+                stderr = e.stderr
+                if isinstance(stderr, bytes):
+                    stderr = stderr.decode("utf-8")
+                return AnalysisResult(
+                    exit_code=1,
+                    logs=stderr or "",
+                    output="",
+                    error=str(e),
+                )
+            except Exception as e:
+                return AnalysisResult(
+                    exit_code=1,
+                    logs="",
+                    output="",
+                    error=str(e),
+                )
+            finally:
+                if container_id in self._containers:
+                    try:
+                        self._containers[container_id].remove(force=True)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to remove analysis container: %s", e
+                        )
+                    del self._containers[container_id]
 
     def cleanup(self) -> None:
         """Clean up any running containers."""
