@@ -202,7 +202,7 @@ class ExperimentRunner:
         """Save the experiment config to results."""
         import tomli_w
 
-        config_dict = self.config.model_dump()
+        config_dict = self.config.model_dump(exclude_none=True)
         with open(results_path / "config.toml", "wb") as f:
             tomli_w.dump(config_dict, f)
 

@@ -1,10 +1,13 @@
 """Container management for running agent benchmarks."""
 
+import logging
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import docker
+
+logger = logging.getLogger(__name__)
 from docker.errors import ContainerError, ImageNotFound
 from docker.models.containers import Container
 
@@ -40,7 +43,7 @@ class ContainerManager:
     """Manages Docker containers for benchmark runs."""
 
     IMAGE_NAME = "agent-benchmark-opencode"
-    DOCKER_DIR = Path(__file__).parent.parent.parent.parent / "docker"
+    DOCKER_DIR = Path(__file__).parent.parent.parent / "docker"
 
     def __init__(self) -> None:
         self.client = docker.from_env()
@@ -141,8 +144,8 @@ class ContainerManager:
             if config.run_id in self._containers:
                 try:
                     self._containers[config.run_id].remove(force=True)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Failed to remove container %s: %s", config.run_id, e)
                 del self._containers[config.run_id]
 
     def cleanup(self) -> None:
@@ -150,8 +153,8 @@ class ContainerManager:
         for run_id, container in list(self._containers.items()):
             try:
                 container.remove(force=True)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to remove container %s during cleanup: %s", run_id, e)
             del self._containers[run_id]
 
 

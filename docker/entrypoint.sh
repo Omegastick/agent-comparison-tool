@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Environment variables expected:
+# Environment variables:
 # - REPO_URL: Git repository URL or local path
 # - REPO_COMMIT: Commit hash to checkout (optional)
 # - PROMPT_FILE: Path to prompt file within repo
@@ -14,12 +14,11 @@ set -e
 LOG_FILE="/workspace/.benchmark/run.log"
 METRICS_FILE="/workspace/.benchmark/metrics.json"
 
-mkdir -p /workspace/.benchmark
+mkdir -p -m 755 /workspace/.benchmark
 
 echo "Starting benchmark run: ${RUN_ID}" | tee "$LOG_FILE"
 echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE"
 
-# Clone or copy repository
 if [[ "$REPO_URL" == http* ]] || [[ "$REPO_URL" == git@* ]]; then
     echo "Cloning repository: ${REPO_URL}" | tee -a "$LOG_FILE"
     git clone "$REPO_URL" /workspace/repo 2>&1 | tee -a "$LOG_FILE"
@@ -30,61 +29,57 @@ fi
 
 cd /workspace/repo
 
-# Checkout specific commit if provided
 if [ -n "$REPO_COMMIT" ]; then
     echo "Checking out commit: ${REPO_COMMIT}" | tee -a "$LOG_FILE"
     git checkout "$REPO_COMMIT" 2>&1 | tee -a "$LOG_FILE"
 fi
 
-# Get the prompt
 PROMPT=""
-if [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
-    echo "Reading prompt from file: ${PROMPT_FILE}" | tee -a "$LOG_FILE"
-    PROMPT=$(cat "$PROMPT_FILE")
+if [ -n "$PROMPT_FILE" ]; then
+    if [ -f "$PROMPT_FILE" ]; then
+        echo "Reading prompt from file: ${PROMPT_FILE}" | tee -a "$LOG_FILE"
+        PROMPT=$(cat "$PROMPT_FILE")
+    else
+        echo "ERROR: PROMPT_FILE specified but file not found: ${PROMPT_FILE}" | tee -a "$LOG_FILE"
+        exit 1
+    fi
 elif [ -n "$PROMPT_TEXT" ]; then
     echo "Using inline prompt" | tee -a "$LOG_FILE"
     PROMPT="$PROMPT_TEXT"
 else
-    echo "ERROR: No prompt provided" | tee -a "$LOG_FILE"
+    echo "ERROR: No prompt provided (set PROMPT_FILE or PROMPT_TEXT)" | tee -a "$LOG_FILE"
     exit 1
 fi
 
-# Build opencode command
-OPENCODE_CMD="opencode"
+OPENCODE_ARGS=()
 if [ -n "$OPENCODE_AGENT" ]; then
-    OPENCODE_CMD="$OPENCODE_CMD --agent $OPENCODE_AGENT"
+    OPENCODE_ARGS+=(--agent "$OPENCODE_AGENT")
 fi
 if [ -n "$OPENCODE_MODEL" ]; then
-    OPENCODE_CMD="$OPENCODE_CMD --model $OPENCODE_MODEL"
+    OPENCODE_ARGS+=(-m "$OPENCODE_MODEL")
 fi
 if [ -n "$OPENCODE_EXTRA_ARGS" ]; then
-    OPENCODE_CMD="$OPENCODE_CMD $OPENCODE_EXTRA_ARGS"
+    # shellcheck disable=SC2206
+    OPENCODE_ARGS+=($OPENCODE_EXTRA_ARGS)
 fi
 
-# Run opencode
-echo "Running: $OPENCODE_CMD" | tee -a "$LOG_FILE"
+echo "Running: opencode run ${OPENCODE_ARGS[*]}" | tee -a "$LOG_FILE"
 START_TIME=$(date +%s)
 
-# Run opencode with the prompt, capture output
-$OPENCODE_CMD --prompt "$PROMPT" --yes 2>&1 | tee -a "$LOG_FILE"
+opencode run "$PROMPT" "${OPENCODE_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 
-# Collect metrics
 echo "Collecting metrics..." | tee -a "$LOG_FILE"
 
-# Check if there are commits
-HAS_COMMITS=$(git log --oneline -1 2>/dev/null && echo "true" || echo "false")
-
-# Get diff stats if there are changes
-DIFF_STATS=""
-if [ "$HAS_COMMITS" = "true" ]; then
-    DIFF_STATS=$(git diff --stat HEAD~1 2>/dev/null || echo "")
+HAS_COMMITS="false"
+COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+if [ "$COMMIT_COUNT" -gt 0 ]; then
+    HAS_COMMITS="true"
 fi
 
-# Write metrics
 cat > "$METRICS_FILE" << EOF
 {
     "run_id": "${RUN_ID}",
