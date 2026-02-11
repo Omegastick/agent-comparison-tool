@@ -74,7 +74,7 @@ uv run agent-benchmark list
 
 ## Configuration
 
-Experiments are configured using TOML files. See `experiments/sonnet-vs-haiku.toml` for an example.
+Experiments are configured using TOML files. See `experiments/sonnet-vs-gpt5.toml` for an example.
 
 ### Basic Example
 

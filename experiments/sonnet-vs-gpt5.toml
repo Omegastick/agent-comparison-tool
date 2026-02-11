@@ -1,8 +1,8 @@
 # Compare Sonnet 4.5 vs Haiku 4.5 plan generation
 
 [experiment]
-name = "sonnet-vs-haiku"
-description = "Compare plan generation quality between Claude Sonnet 4.5 and Haiku 4.5"
+name = "sonnet-vs-gpt5"
+description = "Compare plan generation quality between Claude Sonnet 4.5 and GPT-5"
 
 [target]
 repo = "https://github.com/Omegastick/sample-todo-api"
@@ -30,5 +30,5 @@ id = "sonnet-4.5"
 model = "github-copilot/claude-sonnet-4.5"
 
 [[agents]]
-id = "haiku-4.5"
-model = "github-copilot/claude-haiku-4.5"
+id = "gpt-5"
+model = "github-copilot/gpt-5"
