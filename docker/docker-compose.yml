@@ -1,0 +1,27 @@
+# Template docker-compose for agent benchmark runs
+# This is dynamically modified by the runner for each experiment
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Mount OpenCode auth from host
+      - ~/.local/share/opencode/auth.json:/root/.local/share/opencode/auth.json:ro
+      # Workspace volume for results
+      - ./workspace:/workspace
+    environment:
+      - REPO_URL
+      - REPO_COMMIT
+      - PROMPT_FILE
+      - PROMPT_TEXT
+      - OPENCODE_AGENT
+      - OPENCODE_MODEL
+      - OPENCODE_EXTRA_ARGS
+      - RUN_ID
+    # Prevent runaway containers
+    deploy:
+      resources:
+        limits:
+          memory: 4G
