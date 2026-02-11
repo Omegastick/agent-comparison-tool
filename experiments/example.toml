@@ -6,10 +6,7 @@ name = "plan-generation-test"
 description = "Compare plan generation quality across different OpenCode configurations"
 
 [target]
-# Use the sample-repo included in this repository
-repo = "../sample-repo"
-# Alternatively, use a GitHub URL:
-# repo = "https://github.com/user/test-repo"
+repo = "https://github.com/Omegastick/sample-todo-api"
 # commit = "abc123"  # Optional: pin to specific commit
 
 [prompt]
