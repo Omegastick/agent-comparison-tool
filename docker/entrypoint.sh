@@ -62,7 +62,7 @@ fi
 echo "Running: opencode run ${OPENCODE_ARGS[*]}" | tee -a "$LOG_FILE"
 START_TIME=$(date +%s)
 
-opencode run --print-logs "$PROMPT" "${OPENCODE_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
+opencode run "$PROMPT" "${OPENCODE_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
 END_TIME=$(date +%s)
