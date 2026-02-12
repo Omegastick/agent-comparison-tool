@@ -45,7 +45,7 @@ class SettingsConfig(BaseModel):
 
     runs_per_agent: int = Field(default=3, ge=1, le=10)
     parallel: bool = True
-    timeout_minutes: int = Field(default=30, ge=1, le=180)
+    timeout_minutes: int = Field(default=10, ge=1, le=180)
 
 
 class AgentConfig(BaseModel):

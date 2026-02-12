@@ -28,6 +28,16 @@ fi
 
 cd /workspace/repo
 
+# Deny question permission so agents don't hang waiting for input
+cat > opencode.json << 'OPENCODE_CONFIG'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "question": "deny"
+  }
+}
+OPENCODE_CONFIG
+
 if [ -n "$REPO_COMMIT" ]; then
     echo "Checking out commit: ${REPO_COMMIT}" | tee -a "$LOG_FILE"
     git checkout "$REPO_COMMIT" 2>&1 | tee -a "$LOG_FILE"
