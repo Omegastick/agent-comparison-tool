@@ -1,0 +1,97 @@
+001-todo-crud — Speckit Plan
+
+Objective
+- Deliver a small, production-ready TODO app with full CRUD (create, read, update, delete) on tasks, including persistence, validation, UI, tests, and CI/CD. Keep scope tight, prioritize reliability and developer experience.
+
+Scope & Stack
+- Backend: Node.js, Express, TypeScript; Prisma ORM; SQLite for local/dev, ready to swap to Postgres.
+- Frontend: React (Vite + TypeScript); lightweight state (React hooks); minimal UI toolkit (unstyled HTML + small CSS).
+- Testing: Vitest/Jest for unit; Supertest for API; Playwright for E2E.
+- Tooling: ESLint, Prettier, Husky pre-commit; pnpm.
+- Packaging: Docker (multi-stage build) and docker-compose for local.
+
+Definition of Done (DoD)
+- CRUD API: `POST /todos`, `GET /todos`, `GET /todos/:id`, `PATCH /todos/:id`, `DELETE /todos/:id` with input validation, proper status codes, and error handling.
+- DB schema: Prisma model for `Todo` with migrations; seed script.
+- UI: List, add, edit, delete; optimistic updates where reasonable; empty/loading/error states.
+- Auth: None for MVP; code structured to add later.
+- Tests: Unit (models/utils), API integration (routes/validation), E2E (basic user flows).
+- Dev Experience: Hot reload, lint/format, scripts documented.
+- CI: Install, lint, test, typecheck, build; PR checks.
+- Ops: Docker image builds; compose for local; configurable `DATABASE_URL`.
+- Docs: README with setup, scripts, env, API spec; CHANGELOG initialized.
+
+User Stories
+- As a user, I can create a todo with title and optional description.
+- As a user, I can view all todos sorted by created time.
+- As a user, I can update a todo’s title, description, and completion status.
+- As a user, I can delete a todo.
+- As a user, I receive clear feedback when actions succeed or fail.
+
+Non-Functional Requirements
+- Reliability: Input validation; defensive error handling; no unhandled rejections.
+- Performance: Sub-100ms typical API latency locally; efficient list rendering.
+- Accessibility: Keyboard navigation; semantic HTML; focus management.
+- Maintainability: Typed interfaces; clear module boundaries; minimal dependencies.
+
+API Specification
+- POST /todos: body `{ title: string (1..120), description?: string (0..2000) }` → 201, returns created todo.
+- GET /todos: query `{ completed?: boolean }` → 200, returns array.
+- GET /todos/:id → 200 or 404.
+- PATCH /todos/:id: body `{ title?: string, description?: string, completed?: boolean }` → 200 or 400/404.
+- DELETE /todos/:id → 204 or 404.
+- Error format: `{ error: { code: string, message: string } }`.
+
+Data Model
+- Todo: `{ id: string (uuid), title: string, description?: string, completed: boolean, createdAt: Date, updatedAt: Date }`.
+
+Milestones
+- M1: Project Setup
+  - Init monorepo/workspaces (server, web); TypeScript; ESLint/Prettier; pnpm; Husky.
+  - Scripts: `dev`, `build`, `test`, `lint`, `typecheck`.
+- M2: Data Model & Prisma
+  - Configure Prisma; SQLite; migrations; seed; env wiring.
+- M3: REST API
+  - Express server; routes/controllers; validation (zod or express-validator); error middleware.
+- M4: Frontend Scaffold
+  - Vite React app; base layout; routing; shared API client; types.
+- M5: UI CRUD
+  - List page; create form; edit inline/modal; delete; loading/empty/error states.
+- M6: Integration & E2E
+  - Wire client to API; Playwright basic flows; stabilize UX.
+- M7: CI/CD & Docker
+  - GitHub Actions: install/lint/test/build; Dockerfile (multi-stage); compose for local.
+- M8: Polish & Docs
+  - README, API docs, CHANGELOG; performance and accessibility pass.
+
+Acceptance Criteria
+- M3 API: All endpoints return correct codes; validation enforced; unit/integration tests passing; 90% route coverage.
+- M5 UI: Users can complete CRUD without console errors; ARIA roles present; responsive on mobile and desktop.
+- M6 E2E: Create→Edit→Complete→Delete scenario passes reliably; flaky tests addressed.
+- M7 CI: Pipeline gates merges; Docker image builds under 250MB; compose starts app with one command.
+
+Risks & Mitigations
+- Scope creep → Keep MVP tight; defer tags/auth to stretch.
+- DB migration pitfalls → Use Prisma migrate; add seed and test fixtures.
+- Flaky E2E → Stabilize waits; prefer data-layer assertions; isolate network.
+- Over-engineering → Avoid heavy state libs; keep dependencies lean.
+
+Stretch Goals
+- Tagging and filtering; reorder via drag-and-drop.
+- Simple auth (email link or GitHub OAuth) and per-user todos.
+- Dark/light theme toggle with persisted preference.
+- Deploy preview (e.g., Fly.io/Render) via CI.
+
+Timeline (indicative)
+- Week 1: M1–M3
+- Week 2: M4–M6
+- Week 3: M7–M8 and stretch as time permits.
+
+Success Metrics
+- 100% passing pipeline; E2E scenario passes locally and in CI.
+- New dev can set up and run in <10 minutes.
+- <5 open bugs logged after MVP, all severity low.
+
+Assumptions
+- No auth needed for MVP; single-user demo.
+- Linux/macOS dev environment; Node 20+; pnpm installed.
