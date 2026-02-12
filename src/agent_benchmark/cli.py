@@ -115,7 +115,7 @@ def analyze(
     if not config.analysis or not config.analysis.prompt:
         console.print("[red]No [analysis] section with prompt configured[/]")
         console.print("Add an [analysis] section to your experiment config:")
-        console.print('  [analysis]')
+        console.print("  [analysis]")
         console.print('  model = "anthropic/claude-sonnet-4-5"')
         console.print('  prompt = "Your analysis criteria here"')
         raise typer.Exit(1)

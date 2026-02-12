@@ -1,8 +1,8 @@
 """Configuration models for experiment files."""
 
+import tomllib
 from pathlib import Path
 
-import tomllib
 from pydantic import BaseModel, Field, model_validator
 
 

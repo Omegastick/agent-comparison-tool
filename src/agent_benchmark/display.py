@@ -1,10 +1,9 @@
 """Rich TUI display for benchmark progress."""
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-
-from collections.abc import Callable
 
 from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.live import Live
@@ -191,9 +190,7 @@ class ProgressDisplay:
 
         successful = [r for r in self.state.runs.values() if r.status == RunStatus.COMPLETED]
         failed = [
-            r
-            for r in self.state.runs.values()
-            if r.status in (RunStatus.FAILED, RunStatus.TIMEOUT)
+            r for r in self.state.runs.values() if r.status in (RunStatus.FAILED, RunStatus.TIMEOUT)
         ]
 
         self.console.print(f"Total runs: {self.state.total_runs}")

@@ -66,9 +66,7 @@ def collect_plan_metrics(workspace_path: Path) -> PlanMetrics:
             metrics.total_lines += len(content.split("\n"))
             metrics.sections += len(re.findall(r"^#+\s", content, re.MULTILINE))
             metrics.tasks += len(re.findall(r"^[-*]\s\[[ x]\]", content, re.MULTILINE))
-            metrics.files_referenced.extend(
-                re.findall(r"`([^`]+\.[a-z]+)`", content)
-            )
+            metrics.files_referenced.extend(re.findall(r"`([^`]+\.[a-z]+)`", content))
         except Exception:
             pass
 

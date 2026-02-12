@@ -90,9 +90,7 @@ class ExperimentRunner:
 
         return configs
 
-    def _run_parallel(
-        self, run_configs: list[tuple[str, str, int, ContainerConfig]]
-    ) -> None:
+    def _run_parallel(self, run_configs: list[tuple[str, str, int, ContainerConfig]]) -> None:
         """Run containers in parallel."""
         assert self._workspace_manager is not None
         max_workers = min(len(run_configs), 4)
@@ -133,9 +131,7 @@ class ExperimentRunner:
         finally:
             executor.shutdown(wait=False)
 
-    def _drain_completed_futures(
-        self, futures: dict[Future, tuple[str, str]]
-    ) -> None:
+    def _drain_completed_futures(self, futures: dict[Future, tuple[str, str]]) -> None:
         """Collect results from already-completed futures not yet in self._results."""
         collected_ids = {r[0] for r in self._results}
         for future, (run_id, agent_id) in futures.items():
@@ -147,9 +143,7 @@ class ExperimentRunner:
             except Exception:
                 pass
 
-    def _run_sequential(
-        self, run_configs: list[tuple[str, str, int, ContainerConfig]]
-    ) -> None:
+    def _run_sequential(self, run_configs: list[tuple[str, str, int, ContainerConfig]]) -> None:
         """Run containers sequentially."""
         for run_id, agent_id, _, config in run_configs:
             try:
@@ -170,9 +164,7 @@ class ExperimentRunner:
                     )
                 )
 
-    def _run_single(
-        self, run_id: str, config: ContainerConfig
-    ) -> ContainerResult:
+    def _run_single(self, run_id: str, config: ContainerConfig) -> ContainerResult:
         """Run a single container and update display."""
         self.display.update_run(run_id, RunStatus.RUNNING)
         start_time = time.time()

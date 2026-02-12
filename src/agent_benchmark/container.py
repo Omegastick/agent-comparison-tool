@@ -7,9 +7,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import docker
 from docker.errors import ContainerError, ImageNotFound
 from docker.models.containers import Container
+
+import docker
 
 logger = logging.getLogger(__name__)
 
@@ -294,9 +295,7 @@ class ContainerManager:
                     try:
                         self._containers[container_id].remove(force=True)
                     except Exception as e:
-                        logger.warning(
-                            "Failed to remove analysis container: %s", e
-                        )
+                        logger.warning("Failed to remove analysis container: %s", e)
                     del self._containers[container_id]
 
     def cleanup(self) -> None:

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ANALYSIS_SYSTEM_PROMPT = """You are analyzing AI coding agent benchmark results.
 
 ## Directory Structure
