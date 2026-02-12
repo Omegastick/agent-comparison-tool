@@ -1,0 +1,170 @@
+{
+  "experiment_name": "basic-greenfield-plan-creation",
+  "description": "Compare plan generation quality between Claude Sonnet 4.5, Claude Opus 4.6, and GPT-5",
+  "total_runs": 9,
+  "target_repo": "https://github.com/Omegastick/sample-todo-api",
+  "task": "Generate implementation plan for Todo CRUD API spec using /speckit.plan",
+  "agents": {
+    "sonnet-4.5": {
+      "model": "github-copilot/claude-sonnet-4.5",
+      "runs": 3,
+      "success_rate": 1.0,
+      "plan_generated_rate": 1.0,
+      "avg_duration_seconds": 142.3,
+      "min_duration_seconds": 133,
+      "max_duration_seconds": 154,
+      "duration_variance_pct": 14.8,
+      "avg_plan_lines": 320,
+      "plan_line_counts": [291, 266, 403],
+      "plan_line_variance_pct": 51.5,
+      "artifacts_per_run": [1, 1, 1],
+      "avg_artifacts_per_run": 1.0,
+      "generated_research_md": false,
+      "generated_data_model_md": false,
+      "generated_quickstart_md": false,
+      "generated_contracts": false,
+      "plan_location": ".specify/specs/001-todo-crud/plan.md",
+      "correct_tech_stack": [true, true, true],
+      "correct_data_model": [true, true, true],
+      "correct_endpoints": [true, true, true],
+      "invented_requirements": [false, false, false],
+      "scores": {
+        "completeness": 7,
+        "accuracy": 9,
+        "consistency": 7,
+        "quality": 7,
+        "overall": 7.5
+      }
+    },
+    "opus-4.6": {
+      "model": "anthropic/claude-opus-4-6",
+      "runs": 3,
+      "success_rate": 1.0,
+      "plan_generated_rate": 1.0,
+      "avg_duration_seconds": 321.7,
+      "min_duration_seconds": 280,
+      "max_duration_seconds": 344,
+      "duration_variance_pct": 22.9,
+      "avg_plan_lines": 93.3,
+      "plan_line_counts": [91, 95, 94],
+      "plan_line_variance_pct": 4.3,
+      "artifacts_per_run": [12, 12, 12],
+      "avg_artifacts_per_run": 12.0,
+      "generated_research_md": true,
+      "generated_data_model_md": true,
+      "generated_quickstart_md": true,
+      "generated_contracts": true,
+      "contracts_count_per_run": [7, 7, 7],
+      "plan_location": "specs/001-todo-crud/plan.md",
+      "ran_setup_script": true,
+      "correct_tech_stack": [true, true, true],
+      "correct_data_model": [true, true, true],
+      "correct_endpoints": [true, true, true],
+      "invented_requirements": [false, false, false],
+      "scores": {
+        "completeness": 10,
+        "accuracy": 10,
+        "consistency": 10,
+        "quality": 10,
+        "overall": 10.0
+      }
+    },
+    "gpt-5": {
+      "model": "github-copilot/gpt-5",
+      "runs": 3,
+      "success_rate": 1.0,
+      "plan_generated_rate": 0.67,
+      "avg_duration_seconds": 297.3,
+      "min_duration_seconds": 132,
+      "max_duration_seconds": 424,
+      "duration_variance_pct": 221.2,
+      "avg_plan_lines": 95.0,
+      "plan_line_counts": [97, 117, 71],
+      "plan_line_variance_pct": 64.8,
+      "artifacts_per_run": [1, 5, 5],
+      "avg_artifacts_per_run": 3.7,
+      "generated_research_md": "partial (runs 2-3 only, very thin)",
+      "generated_data_model_md": "partial (runs 2-3 only, very thin)",
+      "generated_quickstart_md": "partial (runs 2-3 only)",
+      "generated_contracts": false,
+      "plan_location": "mixed (speckit.plan in run 1, specs/001-todo-crud/plan.md in runs 2-3)",
+      "correct_tech_stack": [false, true, true],
+      "correct_data_model": [false, false, true],
+      "correct_endpoints": [false, false, true],
+      "invented_requirements": [true, true, false],
+      "run_1_critical_failure": "Used Node.js/Express/TypeScript/React instead of Python/FastAPI; wrong file location; invented frontend, CI/CD, Docker requirements",
+      "run_2_deviations": "Added status enum, priority, due_date, pagination, filtering; used PUT instead of PATCH; title max 200 instead of 500; integer IDs instead of UUID",
+      "scores": {
+        "completeness": 4,
+        "accuracy": 4,
+        "consistency": 2,
+        "quality": 4,
+        "overall": 3.5
+      }
+    }
+  },
+  "rankings": [
+    {
+      "rank": 1,
+      "agent_id": "opus-4.6",
+      "overall_score": 10.0,
+      "strengths": [
+        "Complete artifact generation (12 files per run)",
+        "Perfect spec fidelity across all runs",
+        "Near-identical outputs across runs (4% variance)",
+        "Only agent to run setup-plan.sh script",
+        "Concise, information-dense, actionable plans"
+      ],
+      "weaknesses": [
+        "Slowest average execution time (322s)"
+      ]
+    },
+    {
+      "rank": 2,
+      "agent_id": "sonnet-4.5",
+      "overall_score": 7.5,
+      "strengths": [
+        "Correct tech stack and spec interpretation in all runs",
+        "Fastest execution time (avg 142s)",
+        "Well-structured, comprehensive plan documents",
+        "Reliable plan generation (3/3)"
+      ],
+      "weaknesses": [
+        "Did not generate Phase 0/1 supporting artifacts",
+        "Moderate cross-run variance in structure and depth",
+        "Plans describe future work rather than delivering it"
+      ]
+    },
+    {
+      "rank": 3,
+      "agent_id": "gpt-5",
+      "overall_score": 3.5,
+      "strengths": [
+        "Runs 2-3 used correct tech stack",
+        "Run 3 produced a reasonable (if thin) plan"
+      ],
+      "weaknesses": [
+        "Run 1 used entirely wrong tech stack (Node.js instead of Python)",
+        "Run 2 invented multiple fields/features not in spec",
+        "No contracts generated in any run",
+        "Highest cross-run inconsistency",
+        "Widest duration variance (132-424s)",
+        "Thin supporting artifacts when generated"
+      ]
+    }
+  ],
+  "aggregate_stats": {
+    "total_plan_files_generated": 9,
+    "total_correct_plans": 7,
+    "total_artifacts_generated": 52,
+    "avg_duration_all_runs_seconds": 253.8,
+    "all_exit_codes_zero": true,
+    "commits_with_plans": "varies by agent (metrics.json shows 0 due to collection issue)"
+  },
+  "evaluation_criteria": {
+    "completeness": "Did each agent address all spec requirements and generate expected artifacts?",
+    "accuracy": "Correct interpretation of spec, constitution, and technology stack?",
+    "consistency": "How much variance between runs of the same agent?",
+    "quality": "Overall plan quality, depth, and feasibility?"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "run_id": "opus-4.6-3",
+  "agent_id": "opus-4.6",
+  "exit_code": 0,
+  "duration_seconds": 344,
+  "has_commits": false,
+  "git_diff": {
+    "files_changed": 0,
+    "insertions": 0,
+    "deletions": 0
+  },
+  "plan": {
+    "total_lines": 0,
+    "sections": 0,
+    "tasks": 0,
+    "files_referenced": []
+  },
+  "token_usage": {},
+  "error": null
+}
