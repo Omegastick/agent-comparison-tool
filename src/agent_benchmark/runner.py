@@ -94,12 +94,13 @@ class ExperimentRunner:
         self, run_configs: list[tuple[str, str, int, ContainerConfig]]
     ) -> None:
         """Run containers in parallel."""
+        assert self._workspace_manager is not None
         max_workers = min(len(run_configs), 4)
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
         futures = {}
         for run_id, agent_id, _, config in run_configs:
-            future = executor.submit(self._run_single, run_id, agent_id, config)
+            future = executor.submit(self._run_single, run_id, config)
             futures[future] = (run_id, agent_id)
 
         try:
@@ -109,6 +110,9 @@ class ExperimentRunner:
                     result = future.result()
                     self._results.append((run_id, agent_id, result))
                 except Exception as e:
+                    workspace = self._workspace_manager.get(run_id)
+                    if workspace is None:
+                        raise RuntimeError(f"No workspace for run {run_id}") from e
                     self._results.append(
                         (
                             run_id,
@@ -117,7 +121,7 @@ class ExperimentRunner:
                                 run_id=run_id,
                                 exit_code=1,
                                 logs="",
-                                workspace_path=self._workspace_manager.get(run_id),
+                                workspace_path=workspace,
                                 error=str(e),
                             ),
                         )
@@ -149,7 +153,7 @@ class ExperimentRunner:
         """Run containers sequentially."""
         for run_id, agent_id, _, config in run_configs:
             try:
-                result = self._run_single(run_id, agent_id, config)
+                result = self._run_single(run_id, config)
                 self._results.append((run_id, agent_id, result))
             except Exception as e:
                 self._results.append(
@@ -167,7 +171,7 @@ class ExperimentRunner:
                 )
 
     def _run_single(
-        self, run_id: str, agent_id: str, config: ContainerConfig
+        self, run_id: str, config: ContainerConfig
     ) -> ContainerResult:
         """Run a single container and update display."""
         self.display.update_run(run_id, RunStatus.RUNNING)
@@ -196,6 +200,7 @@ class ExperimentRunner:
         results_path: Path,
     ) -> None:
         """Collect and save results from all runs."""
+        assert self._workspace_manager is not None
         for run_id, agent_id, result in results:
             run_path = results_path / run_id
             run_path.mkdir(parents=True, exist_ok=True)
@@ -203,13 +208,10 @@ class ExperimentRunner:
             if result.workspace_path and result.workspace_path.exists():
                 self._workspace_manager.copy_results(run_id, run_path)
 
-                # Strip .git dirs to avoid embedded git repo issues
+                # Nested .git dirs are treated as submodules when results are committed
                 repo_git = run_path / "repo" / ".git"
                 if repo_git.exists():
                     shutil.rmtree(repo_git, ignore_errors=True)
-
-            log_file = run_path / "run.log"
-            log_file.write_text(result.logs)
 
             metrics = collect_run_metrics(
                 run_id=run_id,

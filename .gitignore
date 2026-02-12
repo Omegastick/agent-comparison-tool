@@ -35,9 +35,6 @@ ENV/
 results/
 .notes/
 
-# uv
-uv.lock
-
 # OS
 .DS_Store
 Thumbs.db

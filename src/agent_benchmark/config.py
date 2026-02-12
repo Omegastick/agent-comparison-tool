@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import tomli
+import tomllib
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -18,11 +18,6 @@ class TargetConfig(BaseModel):
 
     repo: str
     commit: str | None = None
-
-    @property
-    def is_local(self) -> bool:
-        """Check if the repo is a local path."""
-        return not self.repo.startswith(("http://", "https://", "git@"))
 
 
 class PromptConfig(BaseModel):
@@ -86,5 +81,5 @@ class BenchmarkConfig(BaseModel):
 def load_config(path: Path) -> BenchmarkConfig:
     """Load and validate a benchmark configuration from a TOML file."""
     with open(path, "rb") as f:
-        data = tomli.load(f)
+        data = tomllib.load(f)
     return BenchmarkConfig.model_validate(data)

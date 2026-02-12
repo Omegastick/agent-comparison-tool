@@ -1,13 +1,8 @@
 #!/bin/bash
 set -e
 
-# Environment variables:
-# - ANALYSIS_PROMPT: User-provided analysis prompt
-# - OPENCODE_MODEL: Model to use for analysis
-
 cd /workspace/results
 
-# Build the full prompt from system prompt file and user prompt
 FULL_PROMPT=""
 if [ -f "/workspace/system-prompt.txt" ]; then
     SYSTEM_PROMPT=$(cat /workspace/system-prompt.txt)
@@ -25,5 +20,14 @@ if [ -n "$OPENCODE_MODEL" ]; then
     OPENCODE_ARGS+=(-m "$OPENCODE_MODEL")
 fi
 
-# Run opencode - agent writes directly to /workspace/results/analysis.md
+# Prevent OpenCode from hanging on interactive prompts
+cat > opencode.json << 'OPENCODE_CONFIG'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "question": "deny"
+  }
+}
+OPENCODE_CONFIG
+
 opencode run "$FULL_PROMPT" "${OPENCODE_ARGS[@]}"
