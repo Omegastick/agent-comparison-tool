@@ -1,15 +1,32 @@
 """Container management for running agent benchmarks."""
 
 import logging
+import re
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import docker
-
-logger = logging.getLogger(__name__)
 from docker.errors import ContainerError, ImageNotFound
 from docker.models.containers import Container
+
+logger = logging.getLogger(__name__)
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+_TOOL_PREFIXES = ("→ ", "← ", "✱ ", "$ ", "⚙ ", "• ")
+
+
+def parse_activity_line(raw_line: str) -> str | None:
+    """Extract a tool-call activity description from a log line.
+
+    Strips ANSI escape codes and checks for known OpenCode tool prefixes.
+    Returns the cleaned line if it matches, None otherwise.
+    """
+    cleaned = _ANSI_ESCAPE_RE.sub("", raw_line).strip()
+    if any(cleaned.startswith(prefix) for prefix in _TOOL_PREFIXES):
+        return cleaned
+    return None
 
 
 @dataclass
@@ -89,7 +106,11 @@ class ContainerManager:
         )
         self._image_built = True
 
-    def run(self, config: ContainerConfig) -> ContainerResult:
+    def run(
+        self,
+        config: ContainerConfig,
+        activity_callback: Callable[[str], None] | None = None,
+    ) -> ContainerResult:
         """Run a container with the given configuration."""
         self.ensure_image()
 
@@ -128,9 +149,22 @@ class ContainerManager:
             )
             self._containers[config.run_id] = container
 
-            result = container.wait(timeout=config.timeout_seconds)
-            logs = container.logs().decode("utf-8")
-            exit_code = result.get("StatusCode", 1)
+            if activity_callback is not None:
+                all_logs: list[str] = []
+                for chunk in container.logs(stream=True, follow=True):
+                    text = chunk.decode("utf-8")
+                    all_logs.append(text)
+                    activity = parse_activity_line(text)
+                    if activity:
+                        activity_callback(activity)
+
+                result = container.wait(timeout=config.timeout_seconds)
+                exit_code = result.get("StatusCode", 1)
+                logs = "".join(all_logs)
+            else:
+                result = container.wait(timeout=config.timeout_seconds)
+                logs = container.logs().decode("utf-8")
+                exit_code = result.get("StatusCode", 1)
 
             return ContainerResult(
                 run_id=config.run_id,
@@ -272,7 +306,7 @@ class ContainerManager:
                 container.remove(force=True)
             except Exception as e:
                 logger.warning("Failed to remove container %s during cleanup: %s", run_id, e)
-            del self._containers[run_id]
+            self._containers.pop(run_id, None)
 
 
 @dataclass

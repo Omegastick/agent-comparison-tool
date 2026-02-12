@@ -1,13 +1,25 @@
 """Rich TUI display for benchmark progress."""
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 
-from rich.console import Console
+from collections.abc import Callable
+
+from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn
 from rich.table import Table
+
+
+class _DynamicRenderable:
+    """Wraps a callable so Rich re-evaluates it on every render."""
+
+    def __init__(self, fn: Callable[[], RenderableType]) -> None:
+        self._fn = fn
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        yield self._fn()
 
 
 class RunStatus(Enum):
@@ -29,7 +41,9 @@ class RunState:
     run_number: int
     status: RunStatus = RunStatus.PENDING
     duration: float = 0.0
+    started_at: float | None = None
     error: str | None = None
+    activity: str = ""
 
 
 @dataclass
@@ -57,21 +71,14 @@ class ProgressDisplay:
     def __init__(self, console: Console | None = None) -> None:
         self.console = console or Console()
         self.state: ExperimentState | None = None
-        self._progress: Progress | None = None
         self._live: Live | None = None
-        self._task_ids: dict[str, TaskID] = {}
 
     def start(self, experiment_name: str, total_runs: int) -> None:
         """Start the progress display."""
         self.state = ExperimentState(name=experiment_name, total_runs=total_runs)
-        self._progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            console=self.console,
+        self._live = Live(
+            _DynamicRenderable(self._make_panel), console=self.console, refresh_per_second=4
         )
-        self._live = Live(self._make_panel(), console=self.console, refresh_per_second=4)
         self._live.start()
 
     def add_run(self, run_id: str, agent_id: str, run_number: int) -> None:
@@ -99,7 +106,18 @@ class ProgressDisplay:
         run.status = status
         run.duration = duration
         run.error = error
+        if status == RunStatus.RUNNING:
+            run.started_at = time.monotonic()
+        if status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.TIMEOUT):
+            run.started_at = None
+            run.activity = ""
         self._refresh()
+
+    def update_activity(self, run_id: str, activity: str) -> None:
+        """Update the activity description of a running task."""
+        if self.state is None or run_id not in self.state.runs:
+            return
+        self.state.runs[run_id].activity = activity
 
     def _make_panel(self) -> Panel:
         """Create the display panel."""
@@ -112,6 +130,7 @@ class ProgressDisplay:
         table.add_column("#")
         table.add_column("Status")
         table.add_column("Duration")
+        table.add_column("Activity", max_width=40, no_wrap=True)
 
         for run in sorted(self.state.runs.values(), key=lambda r: r.run_id):
             status_style = {
@@ -122,7 +141,14 @@ class ProgressDisplay:
                 RunStatus.TIMEOUT: "red",
             }.get(run.status, "")
 
-            duration_str = f"{run.duration:.1f}s" if run.duration > 0 else "-"
+            if run.status == RunStatus.RUNNING and run.started_at is not None:
+                elapsed = time.monotonic() - run.started_at
+                duration_str = f"{elapsed:.1f}s"
+            elif run.duration > 0:
+                duration_str = f"{run.duration:.1f}s"
+            else:
+                duration_str = "-"
+            activity_str = run.activity if run.status == RunStatus.RUNNING else ""
 
             table.add_row(
                 run.run_id,
@@ -130,6 +156,7 @@ class ProgressDisplay:
                 str(run.run_number),
                 f"[{status_style}]{run.status.value}[/]",
                 duration_str,
+                f"[dim]{activity_str}[/]",
             )
 
         progress_text = (
@@ -153,7 +180,6 @@ class ProgressDisplay:
         if self._live:
             self._live.stop()
             self._live = None
-        self._progress = None
 
     def print_summary(self) -> None:
         """Print a summary of the experiment."""

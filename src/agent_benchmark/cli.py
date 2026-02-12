@@ -13,6 +13,7 @@ app = typer.Typer(
     name="agent-benchmark",
     help="Benchmark framework for AI coding agents",
     no_args_is_help=True,
+    pretty_exceptions_enable=False,
 )
 console = Console()
 

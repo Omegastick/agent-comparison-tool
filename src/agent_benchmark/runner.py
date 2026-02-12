@@ -3,11 +3,11 @@
 import shutil
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-from .config import AgentConfig, BenchmarkConfig
+from .config import BenchmarkConfig
 from .container import ContainerConfig, ContainerManager, ContainerResult, WorkspaceManager
 from .display import ProgressDisplay, RunStatus
 from .metrics import collect_run_metrics, save_metrics
@@ -28,6 +28,7 @@ class ExperimentRunner:
         self.container_manager = ContainerManager()
         self._temp_dir: Path | None = None
         self._workspace_manager: WorkspaceManager | None = None
+        self._results: list[tuple[str, str, ContainerResult]] = []
 
     def run(self) -> Path:
         """Run the experiment and return the results path."""
@@ -54,13 +55,11 @@ class ExperimentRunner:
 
         try:
             if self.config.settings.parallel:
-                results = self._run_parallel(run_configs)
+                self._run_parallel(run_configs)
             else:
-                results = self._run_sequential(run_configs)
-
-            self._collect_results(results, results_path)
-
+                self._run_sequential(run_configs)
         finally:
+            self._collect_results(self._results, results_path)
             self.display.stop()
             self.display.print_summary()
 
@@ -93,24 +92,24 @@ class ExperimentRunner:
 
     def _run_parallel(
         self, run_configs: list[tuple[str, str, int, ContainerConfig]]
-    ) -> list[tuple[str, str, ContainerResult]]:
+    ) -> None:
         """Run containers in parallel."""
-        results = []
         max_workers = min(len(run_configs), 4)
+        executor = ThreadPoolExecutor(max_workers=max_workers)
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {}
-            for run_id, agent_id, run_num, config in run_configs:
-                future = executor.submit(self._run_single, run_id, agent_id, config)
-                futures[future] = (run_id, agent_id)
+        futures = {}
+        for run_id, agent_id, _, config in run_configs:
+            future = executor.submit(self._run_single, run_id, agent_id, config)
+            futures[future] = (run_id, agent_id)
 
+        try:
             for future in as_completed(futures):
                 run_id, agent_id = futures[future]
                 try:
                     result = future.result()
-                    results.append((run_id, agent_id, result))
+                    self._results.append((run_id, agent_id, result))
                 except Exception as e:
-                    results.append(
+                    self._results.append(
                         (
                             run_id,
                             agent_id,
@@ -123,21 +122,37 @@ class ExperimentRunner:
                             ),
                         )
                     )
+        except KeyboardInterrupt:
+            self._drain_completed_futures(futures)
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise
+        finally:
+            executor.shutdown(wait=False)
 
-        return results
+    def _drain_completed_futures(
+        self, futures: dict[Future, tuple[str, str]]
+    ) -> None:
+        """Collect results from already-completed futures not yet in self._results."""
+        collected_ids = {r[0] for r in self._results}
+        for future, (run_id, agent_id) in futures.items():
+            if run_id in collected_ids or not future.done():
+                continue
+            try:
+                result = future.result(timeout=0)
+                self._results.append((run_id, agent_id, result))
+            except Exception:
+                pass
 
     def _run_sequential(
         self, run_configs: list[tuple[str, str, int, ContainerConfig]]
-    ) -> list[tuple[str, str, ContainerResult]]:
+    ) -> None:
         """Run containers sequentially."""
-        results = []
-
-        for run_id, agent_id, run_num, config in run_configs:
+        for run_id, agent_id, _, config in run_configs:
             try:
                 result = self._run_single(run_id, agent_id, config)
-                results.append((run_id, agent_id, result))
+                self._results.append((run_id, agent_id, result))
             except Exception as e:
-                results.append(
+                self._results.append(
                     (
                         run_id,
                         agent_id,
@@ -151,8 +166,6 @@ class ExperimentRunner:
                     )
                 )
 
-        return results
-
     def _run_single(
         self, run_id: str, agent_id: str, config: ContainerConfig
     ) -> ContainerResult:
@@ -160,8 +173,11 @@ class ExperimentRunner:
         self.display.update_run(run_id, RunStatus.RUNNING)
         start_time = time.time()
 
+        def on_activity(activity: str) -> None:
+            self.display.update_activity(run_id, activity)
+
         try:
-            result = self.container_manager.run(config)
+            result = self.container_manager.run(config, activity_callback=on_activity)
             duration = time.time() - start_time
 
             status = RunStatus.COMPLETED if result.exit_code == 0 else RunStatus.FAILED
