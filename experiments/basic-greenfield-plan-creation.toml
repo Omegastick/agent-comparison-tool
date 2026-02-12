@@ -6,7 +6,7 @@ description = "Compare plan generation quality between Claude Sonnet 4.5, Claude
 repo = "https://github.com/Omegastick/sample-todo-api"
 
 [prompt]
-text = "/speckit.plan 001-todo-crud\n\nAfter you have finished, commit your plan to the repository git."
+text = "/speckit.plan 001-todo-crud"
 
 [settings]
 runs_per_agent = 3

@@ -80,18 +80,11 @@ DURATION=$((END_TIME - START_TIME))
 
 echo "Collecting metrics..." | tee -a "$LOG_FILE"
 
-HAS_COMMITS="false"
-COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
-if [ "$COMMIT_COUNT" -gt 0 ]; then
-    HAS_COMMITS="true"
-fi
-
 cat > "$METRICS_FILE" << EOF
 {
     "run_id": "${RUN_ID}",
     "exit_code": ${EXIT_CODE},
     "duration_seconds": ${DURATION},
-    "has_commits": ${HAS_COMMITS},
     "timestamp_start": "${START_TIME}",
     "timestamp_end": "${END_TIME}"
 }

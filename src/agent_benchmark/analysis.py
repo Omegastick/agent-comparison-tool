@@ -23,8 +23,6 @@ Each run's metrics.json contains:
 - run_id, agent_id: Identifiers
 - exit_code: 0 = success
 - duration_seconds: Execution time
-- has_commits: Whether agent made git commits
-- git_diff: files_changed, insertions, deletions
 - plan: total_lines, sections, tasks, files_referenced
 
 ## Your Approach
@@ -91,19 +89,13 @@ def load_run_metrics(run_path: Path) -> RunMetrics | None:
 
     try:
         data = json.loads(metrics_file.read_text())
-        from .metrics import GitDiffStats, PlanMetrics
+        from .metrics import PlanMetrics
 
         return RunMetrics(
             run_id=data["run_id"],
             agent_id=data["agent_id"],
             exit_code=data["exit_code"],
             duration_seconds=data["duration_seconds"],
-            has_commits=data["has_commits"],
-            git_diff=GitDiffStats(
-                files_changed=data["git_diff"]["files_changed"],
-                insertions=data["git_diff"]["insertions"],
-                deletions=data["git_diff"]["deletions"],
-            ),
             plan=PlanMetrics(
                 total_lines=data["plan"]["total_lines"],
                 sections=data["plan"]["sections"],

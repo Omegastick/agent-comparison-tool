@@ -203,6 +203,11 @@ class ExperimentRunner:
             if result.workspace_path and result.workspace_path.exists():
                 self._workspace_manager.copy_results(run_id, run_path)
 
+                # Strip .git dirs to avoid embedded git repo issues
+                repo_git = run_path / "repo" / ".git"
+                if repo_git.exists():
+                    shutil.rmtree(repo_git, ignore_errors=True)
+
             log_file = run_path / "run.log"
             log_file.write_text(result.logs)
 

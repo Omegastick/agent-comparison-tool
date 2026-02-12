@@ -2,18 +2,8 @@
 
 import json
 import re
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-
-
-@dataclass
-class GitDiffStats:
-    """Git diff statistics."""
-
-    files_changed: int = 0
-    insertions: int = 0
-    deletions: int = 0
 
 
 @dataclass
@@ -34,8 +24,6 @@ class RunMetrics:
     agent_id: str
     exit_code: int
     duration_seconds: float
-    has_commits: bool
-    git_diff: GitDiffStats
     plan: PlanMetrics
     token_usage: dict[str, int] = field(default_factory=dict)
     error: str | None = None
@@ -47,12 +35,6 @@ class RunMetrics:
             "agent_id": self.agent_id,
             "exit_code": self.exit_code,
             "duration_seconds": self.duration_seconds,
-            "has_commits": self.has_commits,
-            "git_diff": {
-                "files_changed": self.git_diff.files_changed,
-                "insertions": self.git_diff.insertions,
-                "deletions": self.git_diff.deletions,
-            },
             "plan": {
                 "total_lines": self.plan.total_lines,
                 "sections": self.plan.sections,
@@ -62,56 +44,6 @@ class RunMetrics:
             "token_usage": self.token_usage,
             "error": self.error,
         }
-
-
-def collect_git_metrics(repo_path: Path) -> tuple[bool, GitDiffStats]:
-    """Collect git metrics from a repository."""
-    has_commits = False
-    diff_stats = GitDiffStats()
-
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-        )
-        has_commits = result.returncode == 0
-
-        if has_commits:
-            result = subprocess.run(
-                ["git", "diff", "--stat", "HEAD~1"],
-                cwd=repo_path,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode == 0:
-                diff_stats = parse_diff_stat(result.stdout)
-    except Exception:
-        pass
-
-    return has_commits, diff_stats
-
-
-def parse_diff_stat(diff_output: str) -> GitDiffStats:
-    """Parse git diff --stat output."""
-    stats = GitDiffStats()
-
-    lines = diff_output.strip().split("\n")
-    if not lines:
-        return stats
-
-    summary_line = lines[-1]
-    match = re.search(
-        r"(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?",
-        summary_line,
-    )
-    if match:
-        stats.files_changed = int(match.group(1))
-        stats.insertions = int(match.group(2)) if match.group(2) else 0
-        stats.deletions = int(match.group(3)) if match.group(3) else 0
-
-    return stats
 
 
 def collect_plan_metrics(workspace_path: Path) -> PlanMetrics:
@@ -185,8 +117,6 @@ def collect_run_metrics(
     container_metrics = load_container_metrics(workspace_path)
     duration = container_metrics.get("duration_seconds", 0)
 
-    repo_path = workspace_path / "repo"
-    has_commits, git_diff = collect_git_metrics(repo_path)
     plan_metrics = collect_plan_metrics(workspace_path)
     token_usage = extract_token_usage(logs)
 
@@ -195,8 +125,6 @@ def collect_run_metrics(
         agent_id=agent_id,
         exit_code=exit_code,
         duration_seconds=duration,
-        has_commits=has_commits,
-        git_diff=git_diff,
         plan=plan_metrics,
         token_usage=token_usage,
         error=error,
