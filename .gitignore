@@ -30,6 +30,7 @@ ENV/
 .vscode/
 *.swp
 *.swo
+pyrightconfig.json
 
 # Project specific
 results/

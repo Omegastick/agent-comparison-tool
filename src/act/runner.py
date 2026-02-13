@@ -7,6 +7,8 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
+import tomli_w
+
 from .config import BenchmarkConfig
 from .container import ContainerConfig, ContainerManager, ContainerResult, WorkspaceManager
 from .display import ProgressDisplay, RunStatus
@@ -238,8 +240,6 @@ class ExperimentRunner:
 
     def _save_config(self, results_path: Path) -> None:
         """Save the experiment config to results."""
-        import tomli_w
-
         config_dict = self.config.model_dump(exclude_none=True)
         with open(results_path / "config.toml", "wb") as f:
             tomli_w.dump(config_dict, f)

@@ -3,6 +3,8 @@
 import logging
 import re
 import shutil
+import sys
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -210,9 +212,6 @@ class ContainerManager:
             config: Configuration for the analysis run.
             stream_output: If True, stream container output to stdout in real-time.
         """
-        import sys
-        import tempfile
-
         self.ensure_image()
 
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -3,12 +3,9 @@ rebuild:
     docker build -t act-opencode docker/
 
 lint:
-    uv run ruff check src/ tests/
-    uv run ruff format --check src/ tests/
-
-fmt:
     uv run ruff check --fix src/ tests/
     uv run ruff format src/ tests/
+    uv run ty check --error-on-warning
 
 test:
     uv run pytest tests/

@@ -5,6 +5,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from .analysis import run_ai_analysis
 from .config import load_config
 from .display import ProgressDisplay
 from .runner import ExperimentRunner
@@ -97,8 +98,6 @@ def analyze(
 
     Requires [analysis] section in the experiment config.
     """
-    from .analysis import run_ai_analysis
-
     console.print(f"[bold]Analyzing results:[/] {results_dir}")
 
     config_file = results_dir / "config.toml"
@@ -160,8 +159,6 @@ def run_and_analyze(
     Combines 'run' and 'analyze' commands into a single workflow.
     Requires [analysis] section in the experiment config.
     """
-    from .analysis import run_ai_analysis
-
     try:
         config = load_config(config_path)
     except Exception as e:
