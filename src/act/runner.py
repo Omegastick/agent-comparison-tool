@@ -26,9 +26,6 @@ class ExperimentRunner:
         self.output_base = output_base
         self.display = display
         self.container_manager = ContainerManager()
-        self._temp_dir: Path | None = None
-        self._workspace_manager: WorkspaceManager | None = None
-        self._results: list[tuple[str, str, ContainerResult]] = []
 
     def run(self) -> Path:
         """Run the experiment and return the results path."""
@@ -39,13 +36,14 @@ class ExperimentRunner:
 
         self._save_config(results_path)
 
-        self._temp_dir = Path(tempfile.mkdtemp(prefix="act-"))
-        self._workspace_manager = WorkspaceManager(self._temp_dir)
+        temp_dir = Path(tempfile.mkdtemp(prefix="act-"))
+        workspace_manager = WorkspaceManager(temp_dir)
+        results: list[tuple[str, str, ContainerResult]] = []
 
-        run_configs = self._create_run_configs()
+        run_configs = self._create_run_configs(workspace_manager)
         total_runs = len(run_configs)
 
-        print(f"Temp directory: {self._temp_dir}")
+        print(f"Temp directory: {temp_dir}")
         print()
 
         self.display.start(self.config.experiment.name, total_runs)
@@ -55,17 +53,23 @@ class ExperimentRunner:
 
         try:
             if self.config.settings.parallel:
-                self._run_parallel(run_configs)
+                self._run_parallel(run_configs, workspace_manager, results)
             else:
-                self._run_sequential(run_configs)
+                self._run_sequential(run_configs, results)
         finally:
-            self._collect_results(self._results, results_path)
+            self._collect_results(results, results_path, workspace_manager)
             self.display.stop()
             self.display.print_summary()
+            self.container_manager.cleanup()
+            workspace_manager.cleanup()
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
         return results_path
 
-    def _create_run_configs(self) -> list[tuple[str, str, int, ContainerConfig]]:
+    def _create_run_configs(
+        self, workspace_manager: WorkspaceManager
+    ) -> list[tuple[str, str, int, ContainerConfig]]:
         """Create container configurations for all runs."""
         configs = []
         timeout = self.config.settings.timeout_minutes * 60
@@ -73,7 +77,7 @@ class ExperimentRunner:
         for agent in self.config.agents:
             for run_num in range(1, self.config.settings.runs_per_agent + 1):
                 run_id = f"{agent.id}-{run_num}"
-                workspace = self._workspace_manager.create(run_id)
+                workspace = workspace_manager.create(run_id)
 
                 container_config = ContainerConfig(
                     run_id=run_id,
@@ -90,9 +94,13 @@ class ExperimentRunner:
 
         return configs
 
-    def _run_parallel(self, run_configs: list[tuple[str, str, int, ContainerConfig]]) -> None:
+    def _run_parallel(
+        self,
+        run_configs: list[tuple[str, str, int, ContainerConfig]],
+        workspace_manager: WorkspaceManager,
+        results: list[tuple[str, str, ContainerResult]],
+    ) -> None:
         """Run containers in parallel."""
-        assert self._workspace_manager is not None
         max_workers = min(len(run_configs), 4)
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -106,12 +114,12 @@ class ExperimentRunner:
                 run_id, agent_id = futures[future]
                 try:
                     result = future.result()
-                    self._results.append((run_id, agent_id, result))
+                    results.append((run_id, agent_id, result))
                 except Exception as e:
-                    workspace = self._workspace_manager.get(run_id)
+                    workspace = workspace_manager.get(run_id)
                     if workspace is None:
                         raise RuntimeError(f"No workspace for run {run_id}") from e
-                    self._results.append(
+                    results.append(
                         (
                             run_id,
                             agent_id,
@@ -125,32 +133,40 @@ class ExperimentRunner:
                         )
                     )
         except KeyboardInterrupt:
-            self._drain_completed_futures(futures)
+            self._drain_completed_futures(futures, results)
             executor.shutdown(wait=False, cancel_futures=True)
             raise
         finally:
             executor.shutdown(wait=False)
 
-    def _drain_completed_futures(self, futures: dict[Future, tuple[str, str]]) -> None:
-        """Collect results from already-completed futures not yet in self._results."""
-        collected_ids = {r[0] for r in self._results}
+    def _drain_completed_futures(
+        self,
+        futures: dict[Future, tuple[str, str]],
+        results: list[tuple[str, str, ContainerResult]],
+    ) -> None:
+        """Collect results from already-completed futures not yet in results."""
+        collected_ids = {r[0] for r in results}
         for future, (run_id, agent_id) in futures.items():
             if run_id in collected_ids or not future.done():
                 continue
             try:
                 result = future.result(timeout=0)
-                self._results.append((run_id, agent_id, result))
+                results.append((run_id, agent_id, result))
             except Exception:
                 pass
 
-    def _run_sequential(self, run_configs: list[tuple[str, str, int, ContainerConfig]]) -> None:
+    def _run_sequential(
+        self,
+        run_configs: list[tuple[str, str, int, ContainerConfig]],
+        results: list[tuple[str, str, ContainerResult]],
+    ) -> None:
         """Run containers sequentially."""
         for run_id, agent_id, _, config in run_configs:
             try:
                 result = self._run_single(run_id, config)
-                self._results.append((run_id, agent_id, result))
+                results.append((run_id, agent_id, result))
             except Exception as e:
-                self._results.append(
+                results.append(
                     (
                         run_id,
                         agent_id,
@@ -190,15 +206,15 @@ class ExperimentRunner:
         self,
         results: list[tuple[str, str, ContainerResult]],
         results_path: Path,
+        workspace_manager: WorkspaceManager,
     ) -> None:
         """Collect and save results from all runs."""
-        assert self._workspace_manager is not None
         for run_id, agent_id, result in results:
             run_path = results_path / run_id
             run_path.mkdir(parents=True, exist_ok=True)
 
             if result.workspace_path and result.workspace_path.exists():
-                self._workspace_manager.copy_results(run_id, run_path)
+                workspace_manager.copy_results(run_id, run_path)
 
                 # Nested .git dirs are treated as submodules when results are committed
                 repo_git = run_path / "repo" / ".git"
@@ -224,9 +240,5 @@ class ExperimentRunner:
             tomli_w.dump(config_dict, f)
 
     def cleanup(self) -> None:
-        """Clean up resources."""
+        """Kill any running containers."""
         self.container_manager.cleanup()
-        if self._workspace_manager:
-            self._workspace_manager.cleanup()
-        if self._temp_dir and self._temp_dir.exists():
-            shutil.rmtree(self._temp_dir, ignore_errors=True)
