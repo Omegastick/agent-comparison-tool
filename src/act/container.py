@@ -80,7 +80,7 @@ class AnalysisResult:
 class ContainerManager:
     """Manages Docker containers for benchmark runs."""
 
-    IMAGE_NAME = "agent-benchmark-opencode"
+    IMAGE_NAME = "act-opencode"
     DOCKER_DIR = Path(__file__).parent.parent.parent / "docker"
 
     def __init__(self) -> None:

@@ -39,7 +39,7 @@ class ExperimentRunner:
 
         self._save_config(results_path)
 
-        self._temp_dir = Path(tempfile.mkdtemp(prefix="agent-benchmark-"))
+        self._temp_dir = Path(tempfile.mkdtemp(prefix="act-"))
         self._workspace_manager = WorkspaceManager(self._temp_dir)
 
         run_configs = self._create_run_configs()

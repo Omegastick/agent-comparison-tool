@@ -1,6 +1,6 @@
 """Tests for container module utilities."""
 
-from agent_benchmark.container import parse_activity_line
+from act.container import parse_activity_line
 
 
 class TestParseActivityLine:

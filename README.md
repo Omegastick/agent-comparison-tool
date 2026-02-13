@@ -1,6 +1,6 @@
-# Agent Benchmark
+# ACT (Agent Comparison Tool)
 
-A framework for benchmarking AI coding agents using OpenCode. Runs multiple agents in isolated Docker containers, collects metrics, and generates AI analysis reports.
+A tool for comparing AI coding agents using OpenCode. Runs multiple agents in isolated Docker containers, collects metrics, and generates AI analysis reports.
 
 ## Installation
 
@@ -18,19 +18,19 @@ uv sync
 ### Run an experiment and analyze
 
 ```bash
-uv run agent-benchmark run-and-analyze experiments/basic-greenfield-plan-creation.toml
+uv run act run-and-analyze experiments/basic-greenfield-plan-creation.toml
 ```
 
 ### Run an experiment only
 
 ```bash
-uv run agent-benchmark run experiments/basic-greenfield-plan-creation.toml
+uv run act run experiments/basic-greenfield-plan-creation.toml
 ```
 
 ### Analyze existing results
 
 ```bash
-uv run agent-benchmark analyze results/basic-greenfield-plan-creation-2026-02-11-123456/
+uv run act analyze results/basic-greenfield-plan-creation-2026-02-11-123456/
 ```
 
 Requires an `[analysis]` section in the experiment config.
@@ -38,7 +38,7 @@ Requires an `[analysis]` section in the experiment config.
 ### List past experiments
 
 ```bash
-uv run agent-benchmark list
+uv run act list
 ```
 
 ## Configuration
@@ -52,7 +52,7 @@ Each agent requires:
 
 ## Docker Image
 
-The benchmark runs agents in Docker containers. Rebuild after code changes:
+The tool runs agents in Docker containers. Rebuild after code changes:
 
 ```bash
 just rebuild

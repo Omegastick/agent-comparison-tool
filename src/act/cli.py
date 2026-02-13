@@ -1,4 +1,4 @@
-"""CLI entry point for agent-benchmark."""
+"""CLI entry point for act."""
 
 from pathlib import Path
 
@@ -10,8 +10,8 @@ from .display import ProgressDisplay
 from .runner import ExperimentRunner
 
 app = typer.Typer(
-    name="agent-benchmark",
-    help="Benchmark framework for AI coding agents",
+    name="act",
+    help="Agent Comparison Tool",
     no_args_is_help=True,
     pretty_exceptions_enable=False,
 )

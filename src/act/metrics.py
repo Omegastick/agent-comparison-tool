@@ -7,16 +7,6 @@ from pathlib import Path
 
 
 @dataclass
-class PlanMetrics:
-    """Metrics about a generated plan."""
-
-    total_lines: int = 0
-    sections: int = 0
-    tasks: int = 0
-    files_referenced: list[str] = field(default_factory=list)
-
-
-@dataclass
 class RunMetrics:
     """Complete metrics for a benchmark run."""
 
@@ -24,7 +14,6 @@ class RunMetrics:
     agent_id: str
     exit_code: int
     duration_seconds: float
-    plan: PlanMetrics
     token_usage: dict[str, int] = field(default_factory=dict)
     error: str | None = None
 
@@ -35,43 +24,9 @@ class RunMetrics:
             "agent_id": self.agent_id,
             "exit_code": self.exit_code,
             "duration_seconds": self.duration_seconds,
-            "plan": {
-                "total_lines": self.plan.total_lines,
-                "sections": self.plan.sections,
-                "tasks": self.plan.tasks,
-                "files_referenced": self.plan.files_referenced,
-            },
             "token_usage": self.token_usage,
             "error": self.error,
         }
-
-
-def collect_plan_metrics(workspace_path: Path) -> PlanMetrics:
-    """Analyze plan files in the workspace."""
-    metrics = PlanMetrics()
-
-    plan_patterns = ["*.md", "plan.txt", "PLAN.md", "PLAN.txt"]
-    plan_files = []
-    repo_path = workspace_path / "repo"
-
-    for pattern in plan_patterns:
-        plan_files.extend(repo_path.glob(pattern))
-
-    if not plan_files:
-        return metrics
-
-    for plan_file in plan_files:
-        try:
-            content = plan_file.read_text()
-            metrics.total_lines += len(content.split("\n"))
-            metrics.sections += len(re.findall(r"^#+\s", content, re.MULTILINE))
-            metrics.tasks += len(re.findall(r"^[-*]\s\[[ x]\]", content, re.MULTILINE))
-            metrics.files_referenced.extend(re.findall(r"`([^`]+\.[a-z]+)`", content))
-        except Exception:
-            pass
-
-    metrics.files_referenced = list(set(metrics.files_referenced))
-    return metrics
 
 
 def extract_token_usage(log_content: str) -> dict[str, int]:
@@ -115,7 +70,6 @@ def collect_run_metrics(
     container_metrics = load_container_metrics(workspace_path)
     duration = container_metrics.get("duration_seconds", 0)
 
-    plan_metrics = collect_plan_metrics(workspace_path)
     token_usage = extract_token_usage(logs)
 
     return RunMetrics(
@@ -123,7 +77,6 @@ def collect_run_metrics(
         agent_id=agent_id,
         exit_code=exit_code,
         duration_seconds=duration,
-        plan=plan_metrics,
         token_usage=token_usage,
         error=error,
     )
