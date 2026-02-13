@@ -43,9 +43,6 @@ class ExperimentRunner:
         run_configs = self._create_run_configs(workspace_manager)
         total_runs = len(run_configs)
 
-        print(f"Temp directory: {temp_dir}")
-        print()
-
         self.display.start(self.config.experiment.name, total_runs)
 
         for run_id, agent_id, run_num, _ in run_configs:
@@ -53,7 +50,7 @@ class ExperimentRunner:
 
         try:
             if self.config.settings.parallel:
-                self._run_parallel(run_configs, workspace_manager, results)
+                self._run_parallel(run_configs, results)
             else:
                 self._run_sequential(run_configs, results)
         finally:
@@ -97,28 +94,24 @@ class ExperimentRunner:
     def _run_parallel(
         self,
         run_configs: list[tuple[str, str, int, ContainerConfig]],
-        workspace_manager: WorkspaceManager,
         results: list[tuple[str, str, ContainerResult]],
     ) -> None:
         """Run containers in parallel."""
         max_workers = min(len(run_configs), 4)
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
-        futures = {}
+        futures: dict[Future[ContainerResult], tuple[str, str, ContainerConfig]] = {}
         for run_id, agent_id, _, config in run_configs:
             future = executor.submit(self._run_single, run_id, config)
-            futures[future] = (run_id, agent_id)
+            futures[future] = (run_id, agent_id, config)
 
         try:
             for future in as_completed(futures):
-                run_id, agent_id = futures[future]
+                run_id, agent_id, config = futures[future]
                 try:
                     result = future.result()
                     results.append((run_id, agent_id, result))
                 except Exception as e:
-                    workspace = workspace_manager.get(run_id)
-                    if workspace is None:
-                        raise RuntimeError(f"No workspace for run {run_id}") from e
                     results.append(
                         (
                             run_id,
@@ -127,7 +120,7 @@ class ExperimentRunner:
                                 run_id=run_id,
                                 exit_code=1,
                                 logs="",
-                                workspace_path=workspace,
+                                workspace_path=config.workspace_path,
                                 error=str(e),
                             ),
                         )
@@ -141,19 +134,31 @@ class ExperimentRunner:
 
     def _drain_completed_futures(
         self,
-        futures: dict[Future, tuple[str, str]],
+        futures: dict[Future[ContainerResult], tuple[str, str, ContainerConfig]],
         results: list[tuple[str, str, ContainerResult]],
     ) -> None:
         """Collect results from already-completed futures not yet in results."""
         collected_ids = {r[0] for r in results}
-        for future, (run_id, agent_id) in futures.items():
+        for future, (run_id, agent_id, config) in futures.items():
             if run_id in collected_ids or not future.done():
                 continue
             try:
                 result = future.result(timeout=0)
                 results.append((run_id, agent_id, result))
-            except Exception:
-                pass
+            except Exception as e:
+                results.append(
+                    (
+                        run_id,
+                        agent_id,
+                        ContainerResult(
+                            run_id=run_id,
+                            exit_code=1,
+                            logs="",
+                            workspace_path=config.workspace_path,
+                            error=str(e),
+                        ),
+                    )
+                )
 
     def _run_sequential(
         self,
