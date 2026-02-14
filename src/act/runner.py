@@ -228,6 +228,8 @@ class ExperimentRunner:
                 if repo_git.exists():
                     shutil.rmtree(repo_git, ignore_errors=True)
 
+                shutil.rmtree(run_path / ".benchmark", ignore_errors=True)
+
             metrics = collect_run_metrics(
                 run_id=run_id,
                 agent_id=agent_id,

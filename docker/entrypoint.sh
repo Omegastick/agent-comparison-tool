@@ -10,10 +10,8 @@ set -e
 # - OPENCODE_EXTRA_ARGS: Extra arguments for opencode (optional)
 # - RUN_ID: Unique identifier for this run
 
-LOG_FILE="/workspace/.benchmark/run.log"
-METRICS_FILE="/workspace/.benchmark/metrics.json"
-
-mkdir -p -m 755 /workspace/.benchmark
+LOG_FILE="/workspace/run.log"
+METRICS_FILE="/workspace/metrics.json"
 
 echo "Starting benchmark run: ${RUN_ID}" | tee "$LOG_FILE"
 echo "Timestamp: $(date -Iseconds)" | tee -a "$LOG_FILE"

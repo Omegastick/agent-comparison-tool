@@ -11,7 +11,7 @@ Your working directory is /workspace/results which contains:
 - config.toml: Original benchmark configuration
 - {agent-id}-{run-number}/: Individual run directories containing:
   - metrics.json: Quantitative metrics (duration, exit_code, plan stats)
-  - .benchmark/run.log: Agent execution log
+  - run.log: Agent execution log
   - repo/: Repository state after agent execution
     - .specify/specs/*/plan.md: Generated plan (if created)
 

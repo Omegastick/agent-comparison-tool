@@ -49,7 +49,7 @@ def extract_token_usage(log_content: str) -> dict[str, int]:
 
 def load_container_metrics(workspace_path: Path) -> dict:
     """Load metrics written by the container entrypoint."""
-    metrics_file = workspace_path / ".benchmark" / "metrics.json"
+    metrics_file = workspace_path / "metrics.json"
     if metrics_file.exists():
         try:
             return json.loads(metrics_file.read_text())

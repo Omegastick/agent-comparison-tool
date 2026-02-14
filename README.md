@@ -69,8 +69,7 @@ results/basic-greenfield-plan-creation-2026-02-11-123456/
 ├── stats.json               # AI-generated statistics
 ├── sonnet-4.5-1/            # Run 1 for sonnet agent
 │   ├── metrics.json         # Quantitative metrics
-│   ├── .benchmark/
-│   │   └── run.log          # Agent execution log
+│   ├── run.log              # Agent execution log
 │   └── repo/                # Repository state after run
 ├── sonnet-4.5-2/            # Run 2 for sonnet agent
 ├── gpt-5-1/                 # Run 1 for gpt-5 agent
