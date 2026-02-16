@@ -234,7 +234,6 @@ class ExperimentRunner:
                 run_id=run_id,
                 agent_id=agent_id,
                 workspace_path=result.workspace_path,
-                logs=result.logs,
                 exit_code=result.exit_code,
                 error=result.error,
             )

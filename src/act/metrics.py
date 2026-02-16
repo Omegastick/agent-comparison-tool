@@ -1,7 +1,6 @@
 """Metrics collection for benchmark runs."""
 
 import json
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -29,24 +28,6 @@ class RunMetrics:
         }
 
 
-def extract_token_usage(log_content: str) -> dict[str, int]:
-    """Extract token usage from OpenCode logs."""
-    usage = {}
-
-    patterns = [
-        (r"input[_\s]tokens?[:\s]+(\d+)", "input_tokens"),
-        (r"output[_\s]tokens?[:\s]+(\d+)", "output_tokens"),
-        (r"total[_\s]tokens?[:\s]+(\d+)", "total_tokens"),
-    ]
-
-    for pattern, key in patterns:
-        match = re.search(pattern, log_content, re.IGNORECASE)
-        if match:
-            usage[key] = int(match.group(1))
-
-    return usage
-
-
 def load_container_metrics(workspace_path: Path) -> dict:
     """Load metrics written by the container entrypoint."""
     metrics_file = workspace_path / "metrics.json"
@@ -58,11 +39,46 @@ def load_container_metrics(workspace_path: Path) -> dict:
     return {}
 
 
+def extract_token_usage_from_session(workspace_path: Path) -> dict[str, int]:
+    """Extract token usage from an OpenCode session export.
+
+    Reads opencode_session.json and sums token counts across all messages.
+    """
+    session_file = workspace_path / "opencode_session.json"
+    try:
+        session = json.loads(session_file.read_text())
+        messages = session.get("messages", []) if isinstance(session, dict) else session
+    except Exception:
+        return {}
+
+    totals: dict[str, int] = {
+        "total": 0,
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+    }
+
+    for msg in messages:
+        tokens = (msg.get("info") or {}).get("tokens")
+        if not tokens:
+            continue
+        totals["total"] += tokens.get("total", 0)
+        totals["input"] += tokens.get("input", 0)
+        totals["output"] += tokens.get("output", 0)
+        totals["reasoning"] += tokens.get("reasoning", 0)
+        cache = tokens.get("cache") or {}
+        totals["cache_read"] += cache.get("read", 0)
+        totals["cache_write"] += cache.get("write", 0)
+
+    return totals
+
+
 def collect_run_metrics(
     run_id: str,
     agent_id: str,
     workspace_path: Path,
-    logs: str,
     exit_code: int,
     error: str | None = None,
 ) -> RunMetrics:
@@ -70,7 +86,7 @@ def collect_run_metrics(
     container_metrics = load_container_metrics(workspace_path)
     duration = container_metrics.get("duration_seconds", 0)
 
-    token_usage = extract_token_usage(logs)
+    token_usage = extract_token_usage_from_session(workspace_path)
 
     return RunMetrics(
         run_id=run_id,
