@@ -1,6 +1,7 @@
 """Container management for running agent benchmarks."""
 
 import logging
+import os
 import re
 import shutil
 import sys
@@ -120,6 +121,7 @@ class ContainerManager:
         env = {
             "RUN_ID": config.run_id,
             "REPO_URL": config.repo_url,
+            "HOME": "/home/agent",
         }
         if config.repo_commit:
             env["REPO_COMMIT"] = config.repo_commit
@@ -132,13 +134,17 @@ class ContainerManager:
         if config.extra_args:
             env["OPENCODE_EXTRA_ARGS"] = " ".join(config.extra_args)
 
+        home_dir = tempfile.mkdtemp(prefix="act-home-")
         auth_path = Path.home() / ".local/share/opencode/auth.json"
         volumes = {
             str(config.workspace_path): {"bind": "/workspace", "mode": "rw"},
+            home_dir: {"bind": "/home/agent", "mode": "rw"},
         }
         if auth_path.exists():
+            opencode_data = Path(home_dir) / ".local" / "share" / "opencode"
+            opencode_data.mkdir(parents=True)
             volumes[str(auth_path)] = {
-                "bind": "/root/.local/share/opencode/auth.json",
+                "bind": "/home/agent/.local/share/opencode/auth.json",
                 "mode": "ro",
             }
 
@@ -149,6 +155,7 @@ class ContainerManager:
                 volumes=volumes,
                 detach=True,
                 mem_limit="4g",
+                user=f"{os.getuid()}:{os.getgid()}",
             )
             self._containers[config.run_id] = container
 
@@ -202,6 +209,7 @@ class ContainerManager:
                 except Exception as e:
                     logger.warning("Failed to remove container %s: %s", config.run_id, e)
                 del self._containers[config.run_id]
+            shutil.rmtree(home_dir, ignore_errors=True)
 
     def run_analysis(
         self, config: AnalysisContainerConfig, stream_output: bool = True
@@ -220,8 +228,12 @@ class ContainerManager:
             system_prompt_file = temp_path / "system-prompt.txt"
             system_prompt_file.write_text(config.system_prompt)
 
+            home_path = temp_path / "home"
+            home_path.mkdir()
+
             env = {
                 "ANALYSIS_PROMPT": config.prompt,
+                "HOME": "/home/agent",
             }
             if config.model:
                 env["OPENCODE_MODEL"] = config.model
@@ -233,10 +245,13 @@ class ContainerManager:
                     "bind": "/workspace/system-prompt.txt",
                     "mode": "ro",
                 },
+                str(home_path): {"bind": "/home/agent", "mode": "rw"},
             }
             if auth_path.exists():
+                opencode_data = home_path / ".local" / "share" / "opencode"
+                opencode_data.mkdir(parents=True)
                 volumes[str(auth_path)] = {
-                    "bind": "/root/.local/share/opencode/auth.json",
+                    "bind": "/home/agent/.local/share/opencode/auth.json",
                     "mode": "ro",
                 }
 
@@ -251,6 +266,7 @@ class ContainerManager:
                     volumes=volumes,
                     detach=True,
                     mem_limit="4g",
+                    user=f"{os.getuid()}:{os.getgid()}",
                 )
                 self._containers[container_id] = container
 
