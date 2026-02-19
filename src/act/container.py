@@ -145,7 +145,7 @@ class ContainerManager:
             opencode_data.mkdir(parents=True)
             volumes[str(auth_path)] = {
                 "bind": "/home/agent/.local/share/opencode/auth.json",
-                "mode": "ro",
+                "mode": "rw",
             }
 
         try:
@@ -252,7 +252,7 @@ class ContainerManager:
                 opencode_data.mkdir(parents=True)
                 volumes[str(auth_path)] = {
                     "bind": "/home/agent/.local/share/opencode/auth.json",
-                    "mode": "ro",
+                    "mode": "rw",
                 }
 
             container_id = f"analysis-{id(config)}"

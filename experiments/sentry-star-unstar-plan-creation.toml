@@ -4,7 +4,7 @@ description = "Compare plan generation quality on a real-world Sentry feature (s
 
 [target]
 repo = "https://github.com/Omegastick/sentry"
-branch = "001-star-unstar-views"
+commit = "001-star-unstar-views"
 
 [prompt]
 text = "/speckit.plan 001-star-unstar-views"
@@ -32,9 +32,14 @@ id = "sonnet-4.5"
 model = "github-copilot/claude-sonnet-4.5"
 
 [[agents]]
-id = "opus-4.6"
-model = "anthropic/claude-opus-4-6"
+id = "sonnet-4.6"
+model = "anthropic/claude-sonnet-4-6"
 
 [[agents]]
-id = "gpt-5"
-model = "github-copilot/gpt-5"
+id = "opus-4.6"
+model = "github-copilot/claude-opus-4-6"
+
+[[agents]]
+id = "gpt-5-mini"
+model = "github-copilot/gpt-5-mini"
+

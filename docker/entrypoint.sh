@@ -15,8 +15,13 @@ METRICS_FILE="/workspace/metrics.json"
 
 setup_repo() {
     if [[ "$REPO_URL" == http* ]] || [[ "$REPO_URL" == git@* ]]; then
-        echo "Cloning repository: ${REPO_URL}" | tee -a "$LOG_FILE"
-        git clone "$REPO_URL" /workspace/repo 2>&1 | tee -a "$LOG_FILE"
+        if [ -n "$REPO_COMMIT" ]; then
+            echo "Cloning repository (shallow, branch/tag: ${REPO_COMMIT}): ${REPO_URL}" | tee -a "$LOG_FILE"
+            git clone --depth=1 --branch="$REPO_COMMIT" "$REPO_URL" /workspace/repo 2>&1 | tee -a "$LOG_FILE"
+        else
+            echo "Cloning repository (shallow): ${REPO_URL}" | tee -a "$LOG_FILE"
+            git clone --depth=1 "$REPO_URL" /workspace/repo 2>&1 | tee -a "$LOG_FILE"
+        fi
     else
         echo "Copying local repository from: ${REPO_URL}" | tee -a "$LOG_FILE"
         cp -r "$REPO_URL" /workspace/repo
@@ -33,11 +38,6 @@ setup_repo() {
   }
 }
 OPENCODE_CONFIG
-
-    if [ -n "$REPO_COMMIT" ]; then
-        echo "Checking out commit: ${REPO_COMMIT}" | tee -a "$LOG_FILE"
-        git checkout "$REPO_COMMIT" 2>&1 | tee -a "$LOG_FILE"
-    fi
 }
 
 resolve_prompt() {
@@ -50,8 +50,36 @@ resolve_prompt() {
             exit 1
         fi
     elif [ -n "$PROMPT_TEXT" ]; then
-        echo "Using inline prompt" | tee -a "$LOG_FILE"
-        PROMPT="$PROMPT_TEXT"
+        if [[ "$PROMPT_TEXT" == /* ]]; then
+            # Expand OpenCode-style slash command to the contents of the command file.
+            # Slash commands don't work in CLI mode, so we read the file directly.
+            local command_and_args="${PROMPT_TEXT#/}"
+            local command_name="${command_and_args%% *}"
+            local arguments=""
+            if [[ "$command_and_args" == *" "* ]]; then
+                arguments="${command_and_args#* }"
+            fi
+            local command_file=".opencode/command/${command_name}.md"
+            if [ ! -f "$command_file" ]; then
+                echo "ERROR: Command file not found: ${command_file}" | tee -a "$LOG_FILE"
+                exit 1
+            fi
+            echo "Expanding command '${command_name}' with args: '${arguments}'" | tee -a "$LOG_FILE"
+            # Strip YAML frontmatter (everything up to and including the second ---)
+            local front_end
+            front_end=$(grep -n "^---$" "$command_file" | awk -F: 'NR==2{print $1}')
+            local content
+            if [ -n "$front_end" ]; then
+                content=$(tail -n +"$((front_end + 1))" "$command_file")
+            else
+                content=$(cat "$command_file")
+            fi
+            # Substitute $ARGUMENTS placeholder with actual arguments
+            PROMPT=$(echo "$content" | awk -v args="$arguments" '{gsub(/\$ARGUMENTS/, args); print}')
+        else
+            echo "Using inline prompt" | tee -a "$LOG_FILE"
+            PROMPT="$PROMPT_TEXT"
+        fi
     else
         echo "ERROR: No prompt provided (set PROMPT_FILE or PROMPT_TEXT)" | tee -a "$LOG_FILE"
         exit 1
