@@ -1,0 +1,102 @@
+openapi: 3.0.0
+info:
+  title: Starred Views API
+  version: 1.0.0
+paths:
+  /api/0/organizations/{organization_slug}/starred-views/:
+    post:
+      summary: Star a view
+      parameters:
+        - name: organization_slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                viewId:
+                  type: string
+                position:
+                  type: integer
+              required:
+                - viewId
+      responses:
+        '200':
+          description: Starred successfully (idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+    delete:
+      summary: Unstar a view
+      parameters:
+        - name: organization_slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                viewId:
+                  type: string
+              required:
+                - viewId
+      responses:
+        '200':
+          description: Unstarred successfully (idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+  /api/0/organizations/{organization_slug}/starred-views/list/:
+    get:
+      summary: List a user's starred views
+      parameters:
+        - name: organization_slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of starred views
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  starred:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        viewId:
+                          type: string
+                        position:
+                          type: integer
+                        dateAdded:
+                          type: string
+                          format: date-time

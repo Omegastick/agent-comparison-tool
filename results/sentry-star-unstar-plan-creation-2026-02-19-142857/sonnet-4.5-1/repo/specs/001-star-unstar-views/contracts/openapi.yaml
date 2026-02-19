@@ -1,0 +1,415 @@
+openapi: 3.0.3
+info:
+  title: Sentry Group Search View Star/Unstar API
+  description: |
+    API endpoints for starring and unstarring group search views (saved issue views).
+
+    These endpoints complement the existing bulk operations by providing dedicated 
+    star/unstar actions on existing views without requiring full CRUD semantics.
+
+    **Feature**: Star and Unstar Shared Issue Views  
+    **Spec**: /workspace/repo/specs/001-star-unstar-views/spec.md
+  version: 1.0.0
+  contact:
+    name: Sentry Issues Team
+
+servers:
+  - url: https://sentry.io/api/0
+    description: Production server
+  - url: http://localhost:8000/api/0
+    description: Local development server
+
+tags:
+  - name: Group Search Views
+    description: Operations on saved issue search views
+
+security:
+  - BearerAuth: []
+  - DSN: []
+
+paths:
+  /organizations/{organization_id_or_slug}/group-search-views/{view_id}/star/:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdOrSlug'
+      - $ref: '#/components/parameters/ViewId'
+
+    post:
+      summary: Star a group search view
+      description: |
+        Adds a group search view to the current user's starred list. This operation is idempotent - 
+        starring an already-starred view will not cause an error.
+
+        **Authorization**: User must have access to the view (either own it or it must be organization-shared).
+
+        **Position behavior**:
+        - If `position` is provided: View is inserted at that position, existing views at that position and after are shifted down
+        - If `position` is omitted: View is appended to the end of the starred list
+
+        **Functional Requirements**: FR-001, FR-003, FR-005, FR-006, FR-007, FR-008
+      operationId: starGroupSearchView
+      tags:
+        - Group Search Views
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StarRequest'
+            examples:
+              starAtEnd:
+                summary: Star at end of list
+                description: Omit position to append to end
+                value: {}
+              starAtPosition:
+                summary: Star at specific position
+                description: Insert at position 2
+                value:
+                  position: 2
+      responses:
+        '201':
+          description: View successfully starred (newly created star entry)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarredViewResponse'
+        '200':
+          description: View was already starred (idempotent, no change)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarredViewResponse'
+        '400':
+          description: Bad request (invalid position or request data)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidPosition:
+                  summary: Invalid position value
+                  value:
+                    detail: 'Position must be a non-negative integer'
+        '403':
+          description: Forbidden - user does not have access to this view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                noAccess:
+                  summary: User cannot access this view
+                  value:
+                    detail: 'You do not have access to this view'
+        '404':
+          description: View not found or organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                viewNotFound:
+                  summary: View does not exist
+                  value:
+                    detail: 'The requested resource does not exist'
+      x-sentry-scopes:
+        - member:read
+        - member:write
+
+    delete:
+      summary: Unstar a group search view
+      description: |
+        Removes a group search view from the current user's starred list. This operation is idempotent - 
+        unstarring a non-starred view will not cause an error.
+
+        When a view is unstarred, the positions of remaining starred views are automatically adjusted 
+        to fill the gap.
+
+        **Note**: This only removes the star relationship. The view itself is not deleted and remains 
+        accessible if the user has permission.
+
+        **Functional Requirements**: FR-002, FR-004, FR-009
+      operationId: unstarGroupSearchView
+      tags:
+        - Group Search Views
+      responses:
+        '204':
+          description: View successfully unstarred (or was not starred)
+        '404':
+          description: View not found or organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-sentry-scopes:
+        - member:read
+        - member:write
+
+  /organizations/{organization_id_or_slug}/group-search-views/:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdOrSlug'
+
+    get:
+      summary: List starred group search views
+      description: |
+        Retrieves all views starred by the current user, ordered by position.
+
+        **Note**: This endpoint exists in the current implementation. Included here for completeness.
+      operationId: listStarredGroupSearchViews
+      tags:
+        - Group Search Views
+      responses:
+        '200':
+          description: List of starred views
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StarredViewResponse'
+        '404':
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-sentry-scopes:
+        - member:read
+
+  /organizations/{organization_id_or_slug}/group-search-views-starred-order/:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdOrSlug'
+
+    put:
+      summary: Reorder starred views
+      description: |
+        Updates the position ordering of all starred views for the current user.
+
+        **Important**: The `viewIds` array must contain ALL currently starred view IDs. 
+        This is a reorder operation, not a filter operation. Missing IDs or extra IDs will cause an error.
+
+        **Note**: This endpoint exists in the current implementation. Included here for API completeness.
+      operationId: reorderStarredGroupSearchViews
+      tags:
+        - Group Search Views
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+            examples:
+              reorder:
+                summary: Reorder three starred views
+                value:
+                  viewIds: [789, 456, 123]
+      responses:
+        '204':
+          description: Views successfully reordered
+        '400':
+          description: Bad request (mismatch between provided and existing starred views)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                mismatch:
+                  summary: View IDs don't match starred views
+                  value:
+                    detail: 'Mismatch between existing and provided starred views.'
+                duplicates:
+                  summary: Duplicate view IDs
+                  value:
+                    detail: 'Duplicate view IDs in request'
+        '404':
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-sentry-scopes:
+        - member:read
+        - member:write
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Sentry API token authentication
+    DSN:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Project DSN authentication
+
+  parameters:
+    OrganizationIdOrSlug:
+      name: organization_id_or_slug
+      in: path
+      required: true
+      description: The ID or slug of the organization
+      schema:
+        type: string
+      examples:
+        bySlug:
+          value: my-organization
+        byId:
+          value: '123456'
+
+    ViewId:
+      name: view_id
+      in: path
+      required: true
+      description: The ID of the group search view
+      schema:
+        type: string
+      example: '987654'
+
+  schemas:
+    StarRequest:
+      type: object
+      properties:
+        position:
+          type: integer
+          format: int32
+          minimum: 0
+          description: |
+            The position where the view should be inserted in the user's starred list (0-indexed).
+            If omitted, the view is appended to the end.
+          example: 2
+      additionalProperties: false
+
+    ReorderRequest:
+      type: object
+      required:
+        - viewIds
+      properties:
+        viewIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+          description: |
+            Complete ordered list of view IDs. Must match exactly the set of currently starred views.
+          example: [789, 456, 123]
+          minItems: 0
+      additionalProperties: false
+
+    StarredViewResponse:
+      type: object
+      required:
+        - id
+        - name
+        - query
+        - querySort
+        - position
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the view (returned as string per Sentry convention)
+          example: '987654'
+        name:
+          type: string
+          description: Display name of the view
+          example: 'High Priority Bugs'
+        query:
+          type: string
+          description: Lucene-style search query
+          example: 'is:unresolved priority:high'
+        querySort:
+          type: string
+          description: Sort order for results
+          enum: [date, new, freq, user, trends, inbox]
+          example: 'date'
+        position:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Position in the user's starred list (0-indexed)
+          example: 2
+        projects:
+          type: array
+          items:
+            type: string
+          description: Project slugs to filter by (empty if isAllProjects is true)
+          example: ['backend-api', 'frontend-web']
+        isAllProjects:
+          type: boolean
+          description: Whether the view applies to all projects
+          example: false
+        environments:
+          type: array
+          items:
+            type: string
+          description: Environment names to filter by
+          example: ['production', 'staging']
+        timeFilters:
+          type: object
+          description: Time range filters
+          properties:
+            period:
+              type: string
+              description: Relative time period
+              example: '14d'
+            start:
+              type: string
+              format: date-time
+              description: Absolute start time (ISO 8601)
+            end:
+              type: string
+              format: date-time
+              description: Absolute end time (ISO 8601)
+        lastVisited:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the user last visited this view (ISO 8601)
+          example: '2026-02-19T10:30:00Z'
+        dateCreated:
+          type: string
+          format: date-time
+          description: When the view was created (ISO 8601)
+          example: '2026-02-01T08:00:00Z'
+        dateUpdated:
+          type: string
+          format: date-time
+          description: When the view was last updated (ISO 8601)
+          example: '2026-02-15T14:20:00Z'
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message (DRF convention - must use "detail" key)
+          example: 'You do not have access to this view'
+      additionalProperties: false
+
+  examples:
+    StarredView:
+      summary: Example starred view
+      value:
+        id: '987654'
+        name: 'High Priority Bugs'
+        query: 'is:unresolved priority:high'
+        querySort: 'date'
+        position: 2
+        projects: ['backend-api']
+        isAllProjects: false
+        environments: ['production']
+        timeFilters:
+          period: '14d'
+        lastVisited: '2026-02-19T10:30:00Z'
+        dateCreated: '2026-02-01T08:00:00Z'
+        dateUpdated: '2026-02-15T14:20:00Z'
+
+x-sentry-metadata:
+  feature: organizations:issue-stream-custom-views
+  feature-sharing: organizations:issue-view-sharing
+  owner: issues
+  publish-status: experimental
+  silo: region

@@ -1,0 +1,635 @@
+Starting benchmark run: opus-4.6-2
+Timestamp: 2026-02-19T14:03:07+00:00
+Cloning repository (shallow, branch/tag: 001-star-unstar-views): https://github.com/Omegastick/sentry
+Cloning into '/workspace/repo'...
+Updating files:  64% (10941/16850)Updating files:  65% (10953/16850)Updating files:  66% (11121/16850)Updating files:  67% (11290/16850)Updating files:  68% (11458/16850)Updating files:  69% (11627/16850)Updating files:  70% (11795/16850)Updating files:  71% (11964/16850)Updating files:  72% (12132/16850)Updating files:  73% (12301/16850)Updating files:  74% (12469/16850)Updating files:  75% (12638/16850)Updating files:  76% (12806/16850)Updating files:  77% (12975/16850)Updating files:  78% (13143/16850)Updating files:  79% (13312/16850)Updating files:  80% (13480/16850)Updating files:  81% (13649/16850)Updating files:  82% (13817/16850)Updating files:  83% (13986/16850)Updating files:  84% (14154/16850)Updating files:  85% (14323/16850)Updating files:  86% (14491/16850)Updating files:  87% (14660/16850)Updating files:  88% (14828/16850)Updating files:  89% (14997/16850)Updating files:  90% (15165/16850)Updating files:  91% (15334/16850)Updating files:  92% (15502/16850)Updating files:  93% (15671/16850)Updating files:  94% (15839/16850)Updating files:  95% (16008/16850)Updating files:  96% (16176/16850)Updating files:  97% (16345/16850)Updating files:  98% (16513/16850)Updating files:  99% (16682/16850)Updating files: 100% (16850/16850)Updating files: 100% (16850/16850), done.
+Expanding command 'speckit.plan' with args: '001-star-unstar-views'
+Running: opencode run -m anthropic/claude-opus-4-6
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+[0m
+> build · claude-opus-4-6
+[0m
+I'll start by running the setup script to get the configuration, then load the necessary context files.
+[0m$ [0m.specify/scripts/bash/setup-plan.sh --json
+Copied plan template to /workspace/repo/specs/001-star-unstar-views/plan.md
+{"FEATURE_SPEC":"/workspace/repo/specs/001-star-unstar-views/spec.md","IMPL_PLAN":"/workspace/repo/specs/001-star-unstar-views/plan.md","SPECS_DIR":"/workspace/repo/specs/001-star-unstar-views","BRANCH":"001-star-unstar-views","HAS_GIT":"true"}
+[0m
+[0m→ [0mRead specs/001-star-unstar-views/spec.md
+[0m→ [0mRead .specify/memory/constitution.md
+[0m→ [0mRead specs/001-star-unstar-views/plan.md
+[0m
+[0m# [0mTodos
+[ ] Fill Technical Context in plan.md
+[ ] Fill Constitution Check section
+[ ] Evaluate gates (ERROR if violations unjustified)
+[ ] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[ ] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+Now I need to research the existing codebase to understand GroupSearchView and related patterns. Let me launch parallel research tasks.
+[0m• [0mResearch GroupSearchView model[90m Explore Agent[0m
+[0m• [0mResearch existing star/bookmark patterns[90m Explore Agent[0m
+Resolving dependencies
+[0m• [0mResearch silo and permission patterns[90m Explore Agent[0m
+Resolved, downloaded and extracted [6]
+Saved lockfile
+[0m✓ [0mResearch existing star/bookmark patterns[90m Explore Agent[0m
+[0m✓ [0mResearch GroupSearchView model[90m Explore Agent[0m
+[0m✓ [0mResearch silo and permission patterns[90m Explore Agent[0m
+Excellent. The research reveals that `GroupSearchViewStarred` already exists as a model. The feature needs a **dedicated star/unstar API endpoint** that allows users to star shared views independently (not just via the bulk PUT). Let me now read the key endpoint files to understand the exact patterns.
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_views.py
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_starred_order.py
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_details.py
+Now I have comprehensive understanding. Let me also check the `__init__.py` for the issues endpoints module and the existing tests structure.
+[0m→ [0mRead src/sentry/issues/endpoints/__init__.py
+[0m→ [0mRead tests/sentry/issues/endpoints/test_organization_group_search_view_details.py
+Interesting - the `__init__.py` already references `OrganizationGroupSearchViewStarredEndpoint` in `__all__` (line 57) but doesn't import it. This confirms the endpoint is expected but not yet implemented. Let me check the tests for the base test case and the existing starred views test.
+[0m→ [0mRead tests/sentry/issues/endpoints/test_organization_group_search_views.py[90m [limit=100][0m
+[0m→ [0mRead tests/sentry/issues/endpoints/test_organization_group_search_view_starred_order.py
+Now I have all the context needed. Let me update the plan.md with Technical Context and Constitution Check, then proceed through the phases.
+[0m
+[0m# [0mTodos
+[ ] Fill Technical Context in plan.md
+[ ] Fill Constitution Check section
+[ ] Evaluate gates (ERROR if violations unjustified)
+[ ] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[ ] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+[0m← [0mEdit specs/001-star-unstar-views/plan.md
+Index: /workspace/repo/specs/001-star-unstar-views/plan.md
+===================================================================
+--- /workspace/repo/specs/001-star-unstar-views/plan.md
++++ /workspace/repo/specs/001-star-unstar-views/plan.md
+@@ -1,104 +1,77 @@
+-# Implementation Plan: [FEATURE]
++# Implementation Plan: Star and Unstar Shared Issue Views
+ 
+-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
++**Branch**: `001-star-unstar-views` | **Date**: 2026-02-19 | **Spec**: `/specs/001-star-unstar-views/spec.md`
++**Input**: Feature specification from `/specs/001-star-unstar-views/spec.md`
+ 
+-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+-
+ ## Summary
+ 
+-[Extract from feature spec: primary requirement + technical approach from research]
++Add a dedicated API endpoint to star and unstar `GroupSearchView` instances independently of the bulk PUT endpoint. The `GroupSearchViewStarred` model already exists with position management. This feature adds a `PUT` (star) and `DELETE` (unstar) endpoint at `/organizations/{org}/group-search-views/{view_id}/starred/` that creates/removes `GroupSearchViewStarred` rows with proper position management, idempotent behavior, and access control for both owned and organization-shared views.
+ 
+ ## Technical Context
+ 
+-<!--
+-  ACTION REQUIRED: Replace the content in this section with the technical details
+-  for the project. The structure here is presented in advisory capacity to guide
+-  the iteration process.
+--->
++**Language/Version**: Python 3.13+
++**Primary Dependencies**: Django 5.2+, Django REST Framework, Celery 5.5+
++**Storage**: PostgreSQL (via Django ORM, `GroupSearchViewStarred` table already exists)
++**Testing**: pytest with `APITestCase` and `TransactionTestCase` base classes
++**Target Platform**: Linux server (Sentry backend)
++**Project Type**: Web application (Django backend API)
++**Performance Goals**: Standard API response times; position updates are bounded by user's starred view count (max ~50)
++**Constraints**: Must use `transaction.atomic` with deferred unique constraints for position management; region silo boundary
++**Scale/Scope**: Per-user starred list, bounded by `MAX_VIEWS = 50`
+ 
+-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+-**Project Type**: [single/web/mobile - determines source structure]  
+-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+-
+ ## Constitution Check
+ 
+-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
++_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
+ 
+-[Gates determined based on constitution file]
++| #    | Principle                       | Status | Evidence                                                                                                                                                      |
++| ---- | ------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
++| I    | Convention Over Configuration   | PASS   | Mirrors existing `OrganizationGroupSearchViewDetailsEndpoint` and `OrganizationGroupSearchViewVisitEndpoint` patterns exactly                                 |
++| II   | Security by Default             | PASS   | Queries scoped to `organization` + validates view access (owned or organization-visibility); uses `MemberPermission` with `member:read`/`member:write` scopes |
++| III  | Framework Trust                 | PASS   | Inherits `OrganizationEndpoint`, uses `@region_silo_endpoint`, DRF serializer for input validation                                                            |
++| IV   | Batch-Aware Data Access         | PASS   | Position updates use bulk `filter().update()` with `F()` expressions, not per-row queries                                                                     |
++| V    | Test-Driven with Factories      | PASS   | Tests use `BaseGSVTestCase` with factory-created data; procedural assertions                                                                                  |
++| VI   | Incremental Delivery            | PASS   | Gated behind `organizations:issue-view-sharing` feature flag                                                                                                  |
++| AC-1 | Silo boundaries                 | PASS   | All models are `@region_silo_model`; endpoint is `@region_silo_endpoint`; user referenced via `HybridCloudForeignKey`                                         |
++| AC-2 | Backwards-compatible migrations | PASS   | No new migrations required; `GroupSearchViewStarred` table already exists                                                                                     |
++| AC-3 | API contract stability          | PASS   | Response uses `camelCase`, IDs as strings, errors via `"detail"` key                                                                                          |
+ 
++**Gate result: PASS** — No violations detected.
++
+ ## Project Structure
+ 
+ ### Documentation (this feature)
+ 
+ ```text
+-specs/[###-feature]/
+-├── plan.md              # This file (/speckit.plan command output)
+-├── research.md          # Phase 0 output (/speckit.plan command)
+-├── data-model.md        # Phase 1 output (/speckit.plan command)
+-├── quickstart.md        # Phase 1 output (/speckit.plan command)
+-├── contracts/           # Phase 1 output (/speckit.plan command)
+-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
++specs/001-star-unstar-views/
++├── plan.md              # This file
++├── research.md          # Phase 0 output
++├── data-model.md        # Phase 1 output
++├── quickstart.md        # Phase 1 output
++├── contracts/           # Phase 1 output
++└── tasks.md             # Phase 2 output (NOT created by plan)
+ ```
+ 
+ ### Source Code (repository root)
+-<!--
+-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+-  for this feature. Delete unused options and expand the chosen structure with
+-  real paths (e.g., apps/admin, packages/something). The delivered plan must
+-  not include Option labels.
+--->
+ 
+ ```text
+-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+-src/
++src/sentry/
+ ├── models/
+-├── services/
+-├── cli/
+-└── lib/
++│   └── groupsearchviewstarred.py          # Existing model (no changes needed)
++├── issues/endpoints/
++│   ├── __init__.py                        # Add import for new endpoint
++│   └── organization_group_search_view_starred.py  # NEW: Star/unstar endpoint
++├── api/
++│   ├── urls.py                            # Add URL route for new endpoint
++│   └── serializers/
++│       └── models/groupsearchview.py      # Existing serializer (no changes needed)
++└── ...
+ 
+-tests/
+-├── contract/
+-├── integration/
+-└── unit/
+-
+-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+-backend/
+-├── src/
+-│   ├── models/
+-│   ├── services/
+-│   └── api/
+-└── tests/
+-
+-frontend/
+-├── src/
+-│   ├── components/
+-│   ├── pages/
+-│   └── services/
+-└── tests/
+-
+-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+-api/
+-└── [same as backend above]
+-
+-ios/ or android/
+-└── [platform-specific structure: feature modules, UI flows, platform tests]
++tests/sentry/issues/endpoints/
++└── test_organization_group_search_view_starred.py  # NEW: Tests for star/unstar
+ ```
+ 
+-**Structure Decision**: [Document the selected structure and reference the real
+-directories captured above]
++**Structure Decision**: Follows existing Sentry convention. New endpoint file in `src/sentry/issues/endpoints/` mirrors existing `organization_group_search_view_details.py` and `organization_group_search_view_visit.py` patterns. Test file mirrors source path in `tests/`.
+ 
+ ## Complexity Tracking
+ 
+-> **Fill ONLY if Constitution Check has violations that must be justified**
+-
+-| Violation | Why Needed | Simpler Alternative Rejected Because |
+-|-----------|------------|-------------------------------------|
+-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
++> No violations detected. Table intentionally left empty.
+
+[0m
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[ ] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[ ] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+All Technical Context fields are resolved — no NEEDS CLARIFICATION. Now generating Phase 0 research.md.
+[0m← [0mWrite specs/001-star-unstar-views/research.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchviewlastvisited.py">
+ERROR [1:6] Import "django.db" could not be resolved
+ERROR [2:6] Import "django.db.models" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [21:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_details.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [3:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [5:38] "with_feature" is unknown import symbol
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_starred_order.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [2:6] Import "rest_framework.exceptions" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [5:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [6:6] Import "sentry.testutils.cases" could not be resolved
+ERROR [7:6] Import "sentry.testutils.helpers.features" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/api/endpoints/organization_pinned_searches.py">
+ERROR [1:6] Import "rest_framework" could not be resolved
+ERROR [2:6] Import "rest_framework.request" could not be resolved
+ERROR [3:6] Import "rest_framework.response" could not be resolved
+</diagnostics>
+[0m
+Research.md is complete. Now Phase 1 — generating data-model.md, contracts, and quickstart.md.
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[x] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[ ] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/data-model.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchviewlastvisited.py">
+ERROR [1:6] Import "django.db" could not be resolved
+ERROR [2:6] Import "django.db.models" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [21:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_details.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [3:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [5:38] "with_feature" is unknown import symbol
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_starred_order.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [2:6] Import "rest_framework.exceptions" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [5:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [6:6] Import "sentry.testutils.cases" could not be resolved
+ERROR [7:6] Import "sentry.testutils.helpers.features" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/api/endpoints/organization_pinned_searches.py">
+ERROR [1:6] Import "rest_framework" could not be resolved
+ERROR [2:6] Import "rest_framework.request" could not be resolved
+ERROR [3:6] Import "rest_framework.response" could not be resolved
+</diagnostics>
+[0m
+Now let me create the contracts directory and API contract, then the quickstart.
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[x] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[x] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+[0m$ [0mmkdir -p /workspace/repo/specs/001-star-unstar-views/contracts
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/contracts/star-unstar-view.yaml
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchviewlastvisited.py">
+ERROR [1:6] Import "django.db" could not be resolved
+ERROR [2:6] Import "django.db.models" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [21:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_details.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [3:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [5:38] "with_feature" is unknown import symbol
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_starred_order.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [2:6] Import "rest_framework.exceptions" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [5:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [6:6] Import "sentry.testutils.cases" could not be resolved
+ERROR [7:6] Import "sentry.testutils.helpers.features" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/api/endpoints/organization_pinned_searches.py">
+ERROR [1:6] Import "rest_framework" could not be resolved
+ERROR [2:6] Import "rest_framework.request" could not be resolved
+ERROR [3:6] Import "rest_framework.response" could not be resolved
+</diagnostics>
+[0m
+Now let me write the quickstart.md:
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[x] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/quickstart.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchviewlastvisited.py">
+ERROR [1:6] Import "django.db" could not be resolved
+ERROR [2:6] Import "django.db.models" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [21:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchviewlastvisited.GroupSearchViewLastVisited.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_details.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [3:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [5:38] "with_feature" is unknown import symbol
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/tests/sentry/issues/endpoints/test_organization_group_search_view_starred_order.py">
+ERROR [1:6] Import "django.urls" could not be resolved
+ERROR [2:6] Import "rest_framework.exceptions" could not be resolved
+ERROR [4:6] Import "sentry.models.groupsearchview" could not be resolved
+ERROR [5:6] Import "sentry.models.groupsearchviewstarred" could not be resolved
+ERROR [6:6] Import "sentry.testutils.cases" could not be resolved
+ERROR [7:6] Import "sentry.testutils.helpers.features" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/api/endpoints/organization_pinned_searches.py">
+ERROR [1:6] Import "rest_framework" could not be resolved
+ERROR [2:6] Import "rest_framework.request" could not be resolved
+ERROR [3:6] Import "rest_framework.response" could not be resolved
+</diagnostics>
+[0m
+Now let me run the agent context update script and re-evaluate the constitution check.
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[x] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+[0m$ [0m.specify/scripts/bash/update-agent-context.sh opencode
+INFO: === Updating agent context files for feature 001-star-unstar-views ===
+INFO: Parsing plan data from /workspace/repo/specs/001-star-unstar-views/plan.md
+INFO: Found language: Python 3.13+
+INFO: Found framework: Django 5.2+, Django REST Framework, Celery 5.5+
+INFO: Found database: PostgreSQL (via Django ORM, `GroupSearchViewStarred` table already exists)
+INFO: Found project type: Web application (Django backend API)
+INFO: Updating specific agent: opencode
+INFO: Updating opencode context file: /workspace/repo/AGENTS.md
+INFO: Updating existing agent context file...
+✓ Updated existing opencode context file
+
+INFO: Summary of changes:
+  - Added language: Python 3.13+
+  - Added framework: Django 5.2+, Django REST Framework, Celery 5.5+
+  - Added database: PostgreSQL (via Django ORM, `GroupSearchViewStarred` table already exists)
+
+INFO: Usage: .specify/scripts/bash/update-agent-context.sh [claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|codebuddy|shai|q|agy|bob|qoder]
+✓ Agent context update completed successfully
+[0m
+Now let me re-evaluate the Constitution Check post-design:
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[x] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[x] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+Let me re-evaluate the Constitution Check against the final design and update the plan:
+[0m→ [0mRead specs/001-star-unstar-views/plan.md
+Post-design re-evaluation of the Constitution Check. Let me verify each principle against the final design artifacts:
+
+**Re-evaluation against final design (data-model.md, contracts, quickstart.md):**
+
+| # | Principle | Post-Design Status | Verification |
+|---|-----------|-------------------|-------------|
+| I | Convention Over Configuration | PASS | Endpoint structure, permission class, publish_status, feature flag pattern all mirror existing endpoints exactly (visit, details, starred-order) |
+| II | Security by Default | PASS | All queries scoped by `organization`. Access check validates `user_id == request.user.id OR visibility == ORGANIZATION`. No raw IDs trusted without ownership validation |
+| III | Framework Trust | PASS | Uses `OrganizationEndpoint` base, `@region_silo_endpoint`, DRF serializer for position input validation, `MemberPermission` subclass |
+| IV | Batch-Aware Data Access | PASS | Position shifts use `filter().update(position=F("position") +/- 1)` — single SQL UPDATE, no N+1. Serialization via existing `GroupSearchViewStarredSerializer` which batch-fetches in `get_attrs()` |
+| V | Test-Driven with Factories | PASS | Tests extend `BaseGSVTestCase` (existing factory base); uses `self.create_user()`, `self.create_member()` etc.; procedural with no branching |
+| VI | Incremental Delivery | PASS | Behind `organizations:issue-view-sharing` flag. Safe to merge while disabled |
+| AC-1 | Silo boundaries | PASS | No cross-silo access. User referenced via `HybridCloudForeignKey`. All models/endpoint in region silo |
+| AC-2 | Backwards-compatible migrations | PASS | Zero new migrations. Model and table already exist |
+| AC-3 | API contract stability | PASS | Contract uses `camelCase` fields (`querySort`, `isAllProjects`, `timeFilters`), `id` as string, errors via `"detail"` key |
+
+**Post-design gate result: PASS** — All principles satisfied. No violations.
+[0m
+[0m← [0mEdit specs/001-star-unstar-views/plan.md
+Index: /workspace/repo/specs/001-star-unstar-views/plan.md
+===================================================================
+--- /workspace/repo/specs/001-star-unstar-views/plan.md
++++ /workspace/repo/specs/001-star-unstar-views/plan.md
+@@ -22,8 +22,10 @@
+ ## Constitution Check
+ 
+ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
+ 
++**Pre-Phase 0 check: PASS** | **Post-Phase 1 re-check: PASS** — No new violations introduced by design.
++
+ | #    | Principle                       | Status | Evidence                                                                                                                                                      |
+ | ---- | ------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+ | I    | Convention Over Configuration   | PASS   | Mirrors existing `OrganizationGroupSearchViewDetailsEndpoint` and `OrganizationGroupSearchViewVisitEndpoint` patterns exactly                                 |
+ | II   | Security by Default             | PASS   | Queries scoped to `organization` + validates view access (owned or organization-visibility); uses `MemberPermission` with `member:read`/`member:write` scopes |
+
+[0m
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[x] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[x] Phase 1: Run update-agent-context.sh
+[x] Re-evaluate Constitution Check post-design
+[ ] Report branch, plan path, and generated artifacts
+[0m
+Let me verify all artifacts exist:
+[0m$ [0mfind /workspace/repo/specs/001-star-unstar-views -type f | sort
+/workspace/repo/specs/001-star-unstar-views/contracts/star-unstar-view.yaml
+/workspace/repo/specs/001-star-unstar-views/data-model.md
+/workspace/repo/specs/001-star-unstar-views/plan.md
+/workspace/repo/specs/001-star-unstar-views/quickstart.md
+/workspace/repo/specs/001-star-unstar-views/research.md
+/workspace/repo/specs/001-star-unstar-views/spec.md
+[0m
+[0m# [0mTodos
+[x] Fill Technical Context in plan.md
+[x] Fill Constitution Check section
+[x] Evaluate gates (ERROR if violations unjustified)
+[x] Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[x] Phase 1: Run update-agent-context.sh
+[x] Re-evaluate Constitution Check post-design
+[x] Report branch, plan path, and generated artifacts
+[0m
+## Plan Complete
+
+**Branch**: `001-star-unstar-views`
+**Implementation Plan**: `/workspace/repo/specs/001-star-unstar-views/plan.md`
+
+### Generated Artifacts
+
+| Artifact | Path | Phase |
+|----------|------|-------|
+| Implementation Plan | `specs/001-star-unstar-views/plan.md` | Setup |
+| Research | `specs/001-star-unstar-views/research.md` | Phase 0 |
+| Data Model | `specs/001-star-unstar-views/data-model.md` | Phase 1 |
+| API Contract (OpenAPI) | `specs/001-star-unstar-views/contracts/star-unstar-view.yaml` | Phase 1 |
+| Quickstart Guide | `specs/001-star-unstar-views/quickstart.md` | Phase 1 |
+| Agent Context | `AGENTS.md` (updated) | Phase 1 |
+
+### Constitution Check
+
+All 9 gates **PASS** (6 principles + 3 architectural constraints). No violations. Re-check post-design also **PASS**.
+
+### Key Design Decisions
+
+1. **No new model or migration** -- `GroupSearchViewStarred` already exists with all required fields
+2. **New endpoint**: `PUT/DELETE /organizations/{org}/group-search-views/{view_id}/starred/` -- the `__init__.py` already references this endpoint name in `__all__` but was missing the import/implementation
+3. **Feature flag**: `organizations:issue-view-sharing` (consistent with starred-order endpoint)
+4. **Position management**: Dense sequential positions with `F()` expression bulk shifts in `transaction.atomic`
+5. **Idempotent**: Star returns 200 if already starred; unstar returns 204 if not starred
+6. **Access control**: Organization-scoped + visibility check (owned or organization-visible)
+Collecting metrics...
+Exporting session data...
+Exporting session: ses_389c91fd5ffeZQTiQVKvAuhv82Run completed with exit code: 0
+Duration: 528 seconds

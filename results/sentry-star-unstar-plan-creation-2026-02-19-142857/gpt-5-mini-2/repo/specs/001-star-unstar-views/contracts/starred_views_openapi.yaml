@@ -1,0 +1,78 @@
+openapi: 3.0.0
+info:
+  title: Starred Views API
+  version: 1.0.0
+paths:
+  /api/0/organizations/{organization_id_or_slug}/views/{view_id}/star/:
+    post:
+      summary: Star a view for the current user
+      parameters:
+        - name: organization_id_or_slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: view_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                position:
+                  type: integer
+                  minimum: 1
+              additionalProperties: false
+      responses:
+        '200':
+          description: Starred view created or already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarredView'
+        '403':
+          description: Forbidden - user lacks access
+        '404':
+          description: Not Found - view or organization not found
+    delete:
+      summary: Unstar a view for the current user
+      parameters:
+        - name: organization_id_or_slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: view_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Successfully removed (or no-op if not starred)
+        '403':
+          description: Forbidden - user lacks access
+        '404':
+          description: Not Found - view or organization not found
+
+components:
+  schemas:
+    StarredView:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        groupSearchViewId:
+          type: string
+        position:
+          type: integer
+        dateAdded:
+          type: string
+          format: date-time
+      required: [id, userId, groupSearchViewId, position]

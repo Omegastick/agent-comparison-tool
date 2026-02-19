@@ -1,0 +1,213 @@
+openapi: 3.0.3
+info:
+  title: Star/Unstar Issue View API
+  description: >
+    Endpoints for starring and unstarring GroupSearchView instances.
+    Part of the Sentry Issues domain.
+  version: 0.1.0
+
+paths:
+  /api/0/organizations/{organization_id_or_slug}/group-search-views/{view_id}/starred/:
+    put:
+      operationId: starGroupSearchView
+      summary: Star a view
+      description: >
+        Star a GroupSearchView for the authenticated user. The view must belong
+        to the organization and be accessible (owned by the user or shared with
+        organization visibility). Idempotent: starring an already-starred view
+        returns the current state without modification.
+      tags:
+        - Issues
+      parameters:
+        - $ref: '#/components/parameters/OrganizationIdOrSlug'
+        - $ref: '#/components/parameters/ViewId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StarViewRequest'
+      responses:
+        '200':
+          description: >
+            View successfully starred, or was already starred (idempotent).
+            Returns the starred view with position.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarredViewResponse'
+        '400':
+          description: Invalid request (e.g., feature flag disabled returns 400)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not have access to star this view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: View not found in this organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+
+    delete:
+      operationId: unstarGroupSearchView
+      summary: Unstar a view
+      description: >
+        Remove a starred GroupSearchView for the authenticated user. Positions
+        of subsequent starred views are decremented to maintain a dense list.
+        Idempotent: unstarring a non-starred view returns 204 without error.
+      tags:
+        - Issues
+      parameters:
+        - $ref: '#/components/parameters/OrganizationIdOrSlug'
+        - $ref: '#/components/parameters/ViewId'
+      responses:
+        '204':
+          description: View successfully unstarred, or was not starred (idempotent)
+        '400':
+          description: Feature flag not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: View not found in this organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+
+components:
+  parameters:
+    OrganizationIdOrSlug:
+      name: organization_id_or_slug
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The organization ID or slug
+
+    ViewId:
+      name: view_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The GroupSearchView ID
+
+  schemas:
+    StarViewRequest:
+      type: object
+      properties:
+        position:
+          type: integer
+          minimum: 0
+          description: >
+            Optional. The desired position in the user's starred views list
+            (0-indexed). If omitted, the view is appended to the end.
+            If the position exceeds the current list size, it is clamped to the end.
+      example:
+        position: 2
+
+    StarredViewResponse:
+      type: object
+      required:
+        - id
+        - name
+        - query
+        - querySort
+        - projects
+        - isAllProjects
+        - environments
+        - timeFilters
+        - position
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+          description: The view ID (returned as string per Sentry API convention)
+        name:
+          type: string
+          description: Display name of the view
+        query:
+          type: string
+          description: Issue search query string
+        querySort:
+          type: string
+          enum: [date, new, freq, priority, trends, user]
+          description: Sort order
+        projects:
+          type: array
+          items:
+            type: integer
+          description: List of project IDs
+        isAllProjects:
+          type: boolean
+          description: Whether the view spans all projects
+        environments:
+          type: array
+          items:
+            type: string
+          description: Environment filters
+        timeFilters:
+          type: object
+          description: Time range filters
+        lastVisited:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the user last visited this view
+        position:
+          type: integer
+          minimum: 0
+          description: Position in the user's starred views list (0-indexed)
+        dateCreated:
+          type: string
+          format: date-time
+          description: When the view was created
+        dateUpdated:
+          type: string
+          format: date-time
+          description: When the view was last updated
+      example:
+        id: '12345'
+        name: 'High Priority Unresolved'
+        query: 'is:unresolved issue.priority:[high, medium]'
+        querySort: 'date'
+        projects: [1, 2]
+        isAllProjects: false
+        environments: ['production']
+        timeFilters:
+          period: '14d'
+        lastVisited: null
+        position: 2
+        dateCreated: '2026-02-19T10:00:00Z'
+        dateUpdated: '2026-02-19T10:00:00Z'
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+      example:
+        detail: 'You do not have access to this view'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Sentry API token

@@ -1,0 +1,73 @@
+openapi: '3.0.0'
+info:
+  title: 'Starred Views API'
+  version: '1.0.0'
+paths:
+  '/api/0/organizations/{organization_slug}/starred-views/':
+    post:
+      summary: 'Star a GroupSearchView for the authenticated user'
+      parameters:
+        - name: 'organization_slug'
+          in: 'path'
+          required: true
+          schema:
+            type: 'string'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: 'object'
+              properties:
+                viewId:
+                  type: 'string'
+                position:
+                  type: 'integer'
+              required:
+                - 'viewId'
+      responses:
+        '200':
+          description: 'Starred'
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                properties:
+                  id:
+                    type: 'string'
+                  viewId:
+                    type: 'string'
+                  position:
+                    type: 'integer'
+        '403':
+          description: 'Forbidden'
+        '404':
+          description: 'View not found'
+  '/api/0/organizations/{organization_slug}/starred-views/{view_id}/':
+    delete:
+      summary: 'Unstar a GroupSearchView for the authenticated user'
+      parameters:
+        - name: 'organization_slug'
+          in: 'path'
+          required: true
+          schema:
+            type: 'string'
+        - name: 'view_id'
+          in: 'path'
+          required: true
+          schema:
+            type: 'string'
+      responses:
+        '200':
+          description: 'Unstarred'
+          content:
+            application/json:
+              schema:
+                type: 'object'
+                properties:
+                  success:
+                    type: 'boolean'
+        '403':
+          description: 'Forbidden'
+        '404':
+          description: 'View not found'

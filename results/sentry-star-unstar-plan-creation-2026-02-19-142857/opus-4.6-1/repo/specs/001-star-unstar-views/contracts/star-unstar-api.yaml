@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: Star/Unstar Issue Views API
+  description: |
+    API for starring and unstarring issue search views within an organization.
+    Part of the Sentry issue view sharing feature.
+  version: 0.1.0
+
+paths:
+  /api/0/organizations/{organization_id_or_slug}/group-search-views/{view_id}/starred/:
+    put:
+      operationId: starGroupSearchView
+      summary: Star an issue view
+      description: |
+        Star a group search view for the current user. The view must be owned by the user
+        or have organization-level visibility. If the view is already starred, returns 204
+        without modification (idempotent). Optionally accepts a position parameter to insert
+        the starred view at a specific position in the user's ordered list.
+      tags:
+        - Issues
+      parameters:
+        - name: organization_id_or_slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the organization.
+        - name: view_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the group search view to star.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                position:
+                  type: integer
+                  minimum: 0
+                  description: |
+                    Optional 0-indexed position to insert the starred view.
+                    If omitted, the view is appended to the end of the starred list.
+                    If greater than the current list size, clamped to the end.
+                    When specified, existing views at this position and after are shifted down by 1.
+            examples:
+              appendToEnd:
+                summary: Star without position (append to end)
+                value: {}
+              insertAtPosition:
+                summary: Star at specific position
+                value:
+                  position: 2
+      responses:
+        '204':
+          description: |
+            View successfully starred (or was already starred — idempotent).
+            No response body.
+        '400':
+          description: Feature flag not enabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            View not found. Either the view does not exist, does not belong to the
+            organization, or the user does not have access to it (not owned and not
+            organization-visible).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      operationId: unstarGroupSearchView
+      summary: Unstar an issue view
+      description: |
+        Unstar a group search view for the current user. If the view is not currently
+        starred, returns 204 without modification (idempotent). When a view is unstarred,
+        all starred views with higher positions are shifted up by 1 to maintain a
+        contiguous position sequence.
+      tags:
+        - Issues
+      parameters:
+        - name: organization_id_or_slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the organization.
+        - name: view_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the group search view to unstar.
+      responses:
+        '204':
+          description: |
+            View successfully unstarred (or was not starred — idempotent).
+            No response body.
+        '400':
+          description: Feature flag not enabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: View not found in the organization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message.
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    sentryAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Sentry API key in format: Bearer {token}'
+
+security:
+  - bearerAuth: []
+  - sentryAuth: []

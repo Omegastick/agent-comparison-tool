@@ -1,0 +1,199 @@
+openapi: '3.0.3'
+info:
+  title: Star / Unstar Issue Views
+  version: '1.0'
+  description: >
+    Endpoints for starring and unstarring individual GroupSearchView records
+    per user, with optional position insertion.
+
+servers:
+  - url: https://sentry.io/api/0
+    description: Production
+
+tags:
+  - name: Issue Views
+    description: Operations on starred GroupSearchViews
+
+paths:
+  /organizations/{organization_id_or_slug}/group-search-views/{view_id}/star/:
+    parameters:
+      - name: organization_id_or_slug
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The organization slug or numeric ID.
+      - name: view_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: The numeric ID of the GroupSearchView to star or unstar.
+
+    post:
+      operationId: starGroupSearchView
+      summary: Star a view
+      description: >
+        Adds the specified view to the authenticated user's starred views list.
+        If the view is already starred, returns 204 without making any changes
+        (idempotent). Requires the `organizations:issue-view-sharing` feature flag.
+      tags:
+        - Issue Views
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StarRequest'
+            examples:
+              append:
+                summary: Star at end (no position)
+                value: {}
+              insert_at_position:
+                summary: Star at specific position
+                value:
+                  position: 2
+      responses:
+        '204':
+          description: >
+            View successfully starred (or was already starred — idempotent).
+        '400':
+          description: Invalid request (e.g. non-integer position).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: 'position must be a non-negative integer'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Insufficient permissions (missing member:read or member:write scope).
+        '404':
+          description: >
+            View not found, does not belong to this organization,
+            or the user does not have access to the view.
+        '400 (feature flag)':
+          description: Feature flag `organizations:issue-view-sharing` is not enabled.
+      security:
+        - bearerAuth:
+            - member:read
+            - member:write
+
+    delete:
+      operationId: unstarGroupSearchView
+      summary: Unstar a view
+      description: >
+        Removes the specified view from the authenticated user's starred views list.
+        If the view is not currently starred, returns 204 without making any changes
+        (idempotent). Requires the `organizations:issue-view-sharing` feature flag.
+      tags:
+        - Issue Views
+      responses:
+        '204':
+          description: >
+            View successfully unstarred (or was not starred — idempotent).
+        '401':
+          description: Authentication required.
+        '403':
+          description: Insufficient permissions (missing member:read or member:write scope).
+        '404':
+          description: >
+            View not found, does not belong to this organization,
+            or the user does not have access to the view.
+        '400 (feature flag)':
+          description: Feature flag `organizations:issue-view-sharing` is not enabled.
+      security:
+        - bearerAuth:
+            - member:read
+            - member:write
+
+components:
+  schemas:
+    StarRequest:
+      type: object
+      properties:
+        position:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: >
+            Zero-based index at which to insert the starred view in the user's
+            ordered list. All views currently at this position and beyond are
+            shifted right (position + 1). If omitted or null, the view is
+            appended to the end of the list. If the value exceeds the current
+            list length, it is clamped to the list length (append).
+          example: 2
+      additionalProperties: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message.
+          example: 'position must be a non-negative integer'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Sentry API token with org member scopes.
+
+  examples:
+    StarAtEnd:
+      summary: Star a view at the end of the list (no position)
+      value:
+        position: null
+
+    StarAtPosition2:
+      summary: Star a view at position 2 (shifts existing views at 2+ right)
+      value:
+        position: 2
+
+# ─── Behavioral Contracts ────────────────────────────────────────────────────
+#
+# POST /organizations/{org}/group-search-views/{view_id}/star/
+#
+#   Pre-conditions:
+#     - User is authenticated
+#     - Organization exists and user is a member
+#     - Feature flag `organizations:issue-view-sharing` is enabled
+#
+#   Success path (view not yet starred):
+#     1. Validate view exists in org and user has access (owner OR org-shared)
+#     2. Determine insert_position = min(request.position ?? list_length, list_length)
+#     3. Within transaction.atomic:
+#        a. UPDATE sentry_groupsearchviewstarred
+#              SET position = position + 1
+#            WHERE user_id = :user AND organization_id = :org
+#              AND position >= :insert_position
+#        b. INSERT INTO sentry_groupsearchviewstarred
+#              (user_id, organization_id, group_search_view_id, position)
+#           VALUES (:user, :org, :view_id, :insert_position)
+#     4. Return 204
+#
+#   Idempotent path (view already starred):
+#     - Return 204 without any DB writes
+#
+# DELETE /organizations/{org}/group-search-views/{view_id}/star/
+#
+#   Pre-conditions:
+#     - Same as POST
+#
+#   Success path (view is starred):
+#     1. Validate view exists in org and user has access
+#     2. Within transaction.atomic:
+#        a. SELECT starred WHERE (user, org, view); if not found → return 204
+#        b. deleted_position = starred.position
+#        c. DELETE FROM sentry_groupsearchviewstarred WHERE id = :starred_id
+#        d. UPDATE sentry_groupsearchviewstarred
+#              SET position = position - 1
+#            WHERE user_id = :user AND organization_id = :org
+#              AND position > :deleted_position
+#     3. Return 204
+#
+#   Idempotent path (view not starred):
+#     - Return 204 without any DB writes

@@ -1,0 +1,96 @@
+openapi: 3.0.3
+info:
+  title: GroupSearchView Unstar API
+  version: 1.0.0
+  description: API endpoint for unstarring GroupSearchViews
+
+paths:
+  /api/0/organizations/{organization_id_or_slug}/group-search-views/{view_id}/unstar/:
+    delete:
+      summary: Unstar a GroupSearchView
+      description: |
+        Removes a view from the user's starred list. The view itself is not deleted - only the 
+        starred relationship is removed.
+
+        - Positions of other starred views are automatically adjusted to close the gap
+        - This operation is idempotent - unstarring a non-starred view succeeds without error
+        - The GroupSearchView itself remains accessible (if owned or organization-shared)
+
+      operationId: unstarGroupSearchView
+      tags:
+        - GroupSearchViews
+
+      parameters:
+        - name: organization_id_or_slug
+          in: path
+          required: true
+          description: Organization ID or slug
+          schema:
+            type: string
+          example: 'my-organization'
+
+        - name: view_id
+          in: path
+          required: true
+          description: Numeric ID of the GroupSearchView to unstar
+          schema:
+            type: integer
+            format: int64
+          example: 12345
+
+      responses:
+        '204':
+          description: |
+            View successfully unstarred (or was not starred - idempotent).
+            No response body.
+
+        '401':
+          description: Unauthorized - authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: 'Authentication credentials were not provided'
+
+        '404':
+          description: |
+            View not found in the user's organization.
+            Note: Unstarring a deleted view succeeds (idempotent), but if the view never existed
+            or belonged to a different organization, 404 is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: 'View not found'
+
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+      description: |
+        Standard DRF error response format.
+        All Sentry API errors use the "detail" key.
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API token authentication
+
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: Session cookie authentication

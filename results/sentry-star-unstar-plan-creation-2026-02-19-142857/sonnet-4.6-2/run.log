@@ -1,0 +1,563 @@
+Starting benchmark run: sonnet-4.6-2
+Timestamp: 2026-02-19T14:28:58+00:00
+Cloning repository (shallow, branch/tag: 001-star-unstar-views): https://github.com/Omegastick/sentry
+Cloning into '/workspace/repo'...
+Updating files:  72% (12222/16850)Updating files:  73% (12301/16850)Updating files:  74% (12469/16850)Updating files:  75% (12638/16850)Updating files:  76% (12806/16850)Updating files:  77% (12975/16850)Updating files:  78% (13143/16850)Updating files:  79% (13312/16850)Updating files:  80% (13480/16850)Updating files:  81% (13649/16850)Updating files:  82% (13817/16850)Updating files:  83% (13986/16850)Updating files:  84% (14154/16850)Updating files:  85% (14323/16850)Updating files:  86% (14491/16850)Updating files:  87% (14660/16850)Updating files:  88% (14828/16850)Updating files:  89% (14997/16850)Updating files:  90% (15165/16850)Updating files:  91% (15334/16850)Updating files:  92% (15502/16850)Updating files:  93% (15671/16850)Updating files:  94% (15839/16850)Updating files:  95% (16008/16850)Updating files:  96% (16176/16850)Updating files:  97% (16345/16850)Updating files:  98% (16513/16850)Updating files:  99% (16682/16850)Updating files: 100% (16850/16850)Updating files: 100% (16850/16850), done.
+Expanding command 'speckit.plan' with args: '001-star-unstar-views'
+Running: opencode run -m anthropic/claude-sonnet-4-6
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+[0m
+> build · claude-sonnet-4-6
+[0m
+I'll start by running the setup script to get the plan configuration.
+[0m$ [0mcd /workspace/repo && .specify/scripts/bash/setup-plan.sh --json 2>&1
+Copied plan template to /workspace/repo/specs/001-star-unstar-views/plan.md
+{"FEATURE_SPEC":"/workspace/repo/specs/001-star-unstar-views/spec.md","IMPL_PLAN":"/workspace/repo/specs/001-star-unstar-views/plan.md","SPECS_DIR":"/workspace/repo/specs/001-star-unstar-views","BRANCH":"001-star-unstar-views","HAS_GIT":"true"}
+[0m
+[0m→ [0mRead specs/001-star-unstar-views/spec.md
+[0m→ [0mRead .specify/memory/constitution.md
+[0m→ [0mRead specs/001-star-unstar-views/plan.md
+Now let me explore the existing codebase to understand the relevant models and patterns:
+[0m• [0mResearch GroupSearchView model[90m Explore Agent[0m
+[0m• [0mResearch star/bookmark patterns in Sentry[90m Explore Agent[0m
+Resolving dependencies
+Resolved, downloaded and extracted [6]
+Saved lockfile
+[0m✓ [0mResearch GroupSearchView model[90m Explore Agent[0m
+[0m✓ [0mResearch star/bookmark patterns in Sentry[90m Explore Agent[0m
+Excellent! The research reveals that `GroupSearchViewStarred` **already exists** in the codebase. Now let me look at the existing endpoints more closely to understand exactly what's missing vs. what already exists:
+[0m→ [0mRead src/sentry/models/groupsearchviewstarred.py
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_starred_order.py
+[0m
+[0m$ [0mgrep -r "star\|unstar\|starred" /workspace/repo/src/sentry/api/urls.py | grep -i "group-search-view\|group_search_view" 2>&1
+from sentry.issues.endpoints.organization_group_search_view_starred_order import (
+        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views-starred-order/$",
+        name="sentry-api-0-organization-group-search-view-starred-order",
+[0m
+[0m$ [0mgrep -r "group-search-view" /workspace/repo/src/sentry/api/urls.py 2>&1
+r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views/$",
+        name="sentry-api-0-organization-group-search-views",
+        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views/(?P<view_id>[^\/]+)/$",
+        name="sentry-api-0-organization-group-search-view-details",
+        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views/(?P<view_id>[^\/]+)/visit/$",
+        name="sentry-api-0-organization-group-search-view-visit",
+        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views-starred-order/$",
+        name="sentry-api-0-organization-group-search-view-starred-order",
+[0m
+[0m$ [0mls /workspace/repo/src/sentry/issues/endpoints/ 2>&1
+__init__.py
+actionable_items.py
+group_activities.py
+group_details.py
+group_event_details.py
+group_events.py
+group_hashes.py
+group_notes.py
+group_notes_details.py
+group_open_periods.py
+group_similar_issues.py
+group_similar_issues_embeddings.py
+group_tombstone.py
+group_tombstone_details.py
+organization_derive_code_mappings.py
+organization_eventid.py
+organization_group_index.py
+organization_group_index_stats.py
+organization_group_search_view_details.py
+organization_group_search_view_starred_order.py
+organization_group_search_view_visit.py
+organization_group_search_views.py
+organization_issue_metrics.py
+organization_issues_count.py
+organization_release_previous_commits.py
+organization_searches.py
+organization_shortid.py
+project_event_details.py
+project_events.py
+project_group_index.py
+project_group_stats.py
+project_stacktrace_link.py
+related_issues.py
+shared_group_details.py
+source_map_debug.py
+team_groups_old.py
+[0m
+[0m$ [0mgrep -rn "star\|unstar" /workspace/repo/src/sentry/issues/endpoints/ 2>&1 | head -40
+/workspace/repo/src/sentry/issues/endpoints/group_details.py:116:                start=now - timedelta(days=1),
+/workspace/repo/src/sentry/issues/endpoints/group_details.py:127:                start=now - timedelta(days=30),
+/workspace/repo/src/sentry/issues/endpoints/organization_issues_count.py:4:from sentry_sdk import start_span
+/workspace/repo/src/sentry/issues/endpoints/organization_issues_count.py:43:        with start_span(op="_count"):
+/workspace/repo/src/sentry/issues/endpoints/organization_issues_count.py:63:        with start_span(op="start_search") as span:
+/workspace/repo/src/sentry/issues/endpoints/organization_issues_count.py:71:            start, end = get_date_range_from_params(request.GET)
+/workspace/repo/src/sentry/issues/endpoints/organization_issues_count.py:105:                    {"count_hits": True, "date_to": end, "date_from": start},
+/workspace/repo/src/sentry/issues/endpoints/group_open_periods.py:34:            start, end = get_date_range_from_params(request.GET, optional=True)
+/workspace/repo/src/sentry/issues/endpoints/group_open_periods.py:39:            return get_open_periods_for_group(group, start, end, offset, limit)
+/workspace/repo/src/sentry/issues/endpoints/organization_release_previous_commits.py:43:        start_date = release.date_released or release.date_added
+/workspace/repo/src/sentry/issues/endpoints/organization_release_previous_commits.py:54:                params=[start_date],
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:53:        The ``statsPeriod`` parameter can be used to select a date window starting
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:56:        The ``start`` and ``end`` parameters can be used to select an absolute
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:63:        :qparam string start:       Beginning date. You must also provide ``end``.
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:64:        :qparam string end:         End date. You must also provide ``start``.
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:69:            start, end = get_date_range_from_stats_period(request.GET)
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:108:        stats_period, stats_period_start, stats_period_end = calculate_stats_period(
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:109:            stats_period, start, end
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:122:                stats_period_start=stats_period_start,
+/workspace/repo/src/sentry/issues/endpoints/organization_group_index_stats.py:126:                start=start,
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:35:        start, end = get_date_range_from_params(request.GET)
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:66:        number_of_buckets = (end - start).total_seconds() // interval.total_seconds()
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:84:                start,
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:123:                    start=start,
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:158:                    "start": start.timestamp(),
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:193:    start: datetime,
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:199:    range_filters = {f"{source}__gte": start, f"{source}__lte": end}
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:213:            start,
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:240:    start: datetime,
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:257:        "values": fill_timeseries(start, end, interval, values),
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:266:    start: datetime,
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:271:    def iter_interval(start: datetime, end: datetime, interval: timedelta) -> Iterator[int]:
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:272:        while start <= end:
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:273:            yield int(start.timestamp())
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:274:            start = start + interval
+/workspace/repo/src/sentry/issues/endpoints/organization_issue_metrics.py:278:    for ts in iter_interval(start, end, interval):
+/workspace/repo/src/sentry/issues/endpoints/group_event_details.py:162:            start, end = get_date_range_from_params(request.GET, optional=True)
+/workspace/repo/src/sentry/issues/endpoints/group_event_details.py:193:                    event = group.get_latest_event(conditions=conditions, start=start, end=end)
+/workspace/repo/src/sentry/issues/endpoints/group_event_details.py:200:                    event = group.get_oldest_event(conditions=conditions, start=start, end=end)
+/workspace/repo/src/sentry/issues/endpoints/group_event_details.py:207:                    event = group.get_recommended_event(conditions=conditions, start=start, end=end)
+[0m
+Now I have a complete picture. Let me look at the existing `organization_group_search_view_visit.py` as a pattern for simple per-view actions:
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_visit.py
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_views.py
+Now I have a complete picture. Let me look at the feature flag to understand what's needed:
+[0m
+[0m$ [0mgrep -n "issue-view-sharing\|issue-stream-custom-views" /workspace/repo/src/sentry/features/temporary.py 2>&1 | head -20
+154:    manager.add("organizations:issue-stream-custom-views", OrganizationFeature, FeatureHandlerStrategy.FLAGPOLE, api_expose=True)
+166:    manager.add("organizations:issue-view-sharing", OrganizationFeature, FeatureHandlerStrategy.FLAGPOLE, api_expose=True)
+[0m
+[0m$ [0mgrep -rn "issue-view-sharing\|issue-stream-custom-views" /workspace/repo/src/sentry/features/ 2>&1
+/workspace/repo/src/sentry/features/temporary.py:154:    manager.add("organizations:issue-stream-custom-views", OrganizationFeature, FeatureHandlerStrategy.FLAGPOLE, api_expose=True)
+/workspace/repo/src/sentry/features/temporary.py:166:    manager.add("organizations:issue-view-sharing", OrganizationFeature, FeatureHandlerStrategy.FLAGPOLE, api_expose=True)
+[0m
+[0m$ [0mgrep -n "GroupSearchView\|groupsearchview" /workspace/repo/src/sentry/models/__init__.py 2>&1
+55:from .groupsearchview import *  # NOQA
+56:from .groupsearchviewlastvisited import *  # NOQA
+57:from .groupsearchviewstarred import *  # NOQA
+[0m
+[0m$ [0mgrep -n "group_search_view" /workspace/repo/src/sentry/issues/endpoints/__init__.py 2>&1 | head -30
+18:from .organization_group_search_view_details import OrganizationGroupSearchViewDetailsEndpoint
+19:from .organization_group_search_view_visit import OrganizationGroupSearchViewVisitEndpoint
+20:from .organization_group_search_views import OrganizationGroupSearchViewsEndpoint
+[0m
+[0m→ [0mRead src/sentry/issues/endpoints/__init__.py
+Interesting — `OrganizationGroupSearchViewStarredEndpoint` is already in `__all__` but not yet imported. Let me check if there's any existing star endpoint file or any star-related endpoint referenced in urls.py:
+[0m
+[0m$ [0mgrep -n "OrganizationGroupSearchViewStarred\b" /workspace/repo/src/sentry/api/urls.py 2>&1
+[0m
+[0m$ [0mgrep -rn "OrganizationGroupSearchViewStarredEndpoint" /workspace/repo/src/ 2>&1
+/workspace/repo/src/sentry/issues/endpoints/__init__.py:57:    "OrganizationGroupSearchViewStarredEndpoint",
+[0m
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_details.py
+[0m
+[0m$ [0mgrep -n "group-search-view" /workspace/repo/src/sentry/api/urls.py 2>&1
+1779:        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views/$",
+1781:        name="sentry-api-0-organization-group-search-views",
+1784:        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views/(?P<view_id>[^\/]+)/$",
+1786:        name="sentry-api-0-organization-group-search-view-details",
+1789:        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views/(?P<view_id>[^\/]+)/visit/$",
+1791:        name="sentry-api-0-organization-group-search-view-visit",
+1794:        r"^(?P<organization_id_or_slug>[^\/]+)/group-search-views-starred-order/$",
+1796:        name="sentry-api-0-organization-group-search-view-starred-order",
+[0m
+[0m→ [0mRead src/sentry/api/urls.py[90m [offset=1770, limit=40][0m
+Now I have all the context I need. Let me now generate all the plan artifacts. Let me set up the todo list first:
+[0m
+[0m# [0mTodos
+[ ] Fill plan.md with Technical Context and Constitution Check
+[ ] Generate Phase 0: research.md
+[ ] Generate Phase 1: data-model.md
+[ ] Generate Phase 1: contracts/star-unstar.yaml (OpenAPI)
+[ ] Generate Phase 1: quickstart.md
+[ ] Run update-agent-context.sh opencode
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/plan.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0838_backfill_groupsearchview_positions_to_gsvstarred.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.backends.base.schema" could not be resolved
+ERROR [5:6] Import "django.db.migrations.state" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0837_create_groupsearchviewlastseen_table.py">
+ERROR [3:8] Import "django.db.models.deletion" could not be resolved
+ERROR [4:8] Import "django.utils.timezone" could not be resolved
+ERROR [5:6] Import "django.db" could not be resolved
+</diagnostics>
+[0m
+LSP errors are pre-existing Django import issues unrelated to this work. Now let me generate the research.md:
+[0m# [0mTodos
+[x] Fill plan.md with Technical Context and Constitution Check
+[ ] Generate Phase 0: research.md
+[ ] Generate Phase 1: data-model.md
+[ ] Generate Phase 1: contracts/star-unstar.yaml (OpenAPI)
+[ ] Generate Phase 1: quickstart.md
+[ ] Run update-agent-context.sh opencode
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/research.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0838_backfill_groupsearchview_positions_to_gsvstarred.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.backends.base.schema" could not be resolved
+ERROR [5:6] Import "django.db.migrations.state" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0837_create_groupsearchviewlastseen_table.py">
+ERROR [3:8] Import "django.db.models.deletion" could not be resolved
+ERROR [4:8] Import "django.utils.timezone" could not be resolved
+ERROR [5:6] Import "django.db" could not be resolved
+</diagnostics>
+[0m
+[0m# [0mTodos
+[x] Fill plan.md with Technical Context and Constitution Check
+[x] Generate Phase 0: research.md
+[ ] Generate Phase 1: data-model.md
+[ ] Generate Phase 1: contracts/star-unstar.yaml (OpenAPI)
+[ ] Generate Phase 1: quickstart.md
+[ ] Run update-agent-context.sh opencode
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/data-model.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0838_backfill_groupsearchview_positions_to_gsvstarred.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.backends.base.schema" could not be resolved
+ERROR [5:6] Import "django.db.migrations.state" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0837_create_groupsearchviewlastseen_table.py">
+ERROR [3:8] Import "django.db.models.deletion" could not be resolved
+ERROR [4:8] Import "django.utils.timezone" could not be resolved
+ERROR [5:6] Import "django.db" could not be resolved
+</diagnostics>
+[0m
+[0m# [0mTodos
+[x] Fill plan.md with Technical Context and Constitution Check
+[x] Generate Phase 0: research.md
+[x] Generate Phase 1: data-model.md
+[ ] Generate Phase 1: contracts/star-unstar.yaml (OpenAPI)
+[ ] Generate Phase 1: quickstart.md
+[ ] Run update-agent-context.sh opencode
+[0m
+[0m$ [0mmkdir -p /workspace/repo/specs/001-star-unstar-views/contracts
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/contracts/star-unstar.yaml
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0838_backfill_groupsearchview_positions_to_gsvstarred.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.backends.base.schema" could not be resolved
+ERROR [5:6] Import "django.db.migrations.state" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0837_create_groupsearchviewlastseen_table.py">
+ERROR [3:8] Import "django.db.models.deletion" could not be resolved
+ERROR [4:8] Import "django.utils.timezone" could not be resolved
+ERROR [5:6] Import "django.db" could not be resolved
+</diagnostics>
+[0m
+[0m# [0mTodos
+[x] Fill plan.md with Technical Context and Constitution Check
+[x] Generate Phase 0: research.md
+[x] Generate Phase 1: data-model.md
+[x] Generate Phase 1: contracts/star-unstar.yaml (OpenAPI)
+[ ] Generate Phase 1: quickstart.md
+[ ] Run update-agent-context.sh opencode
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/quickstart.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0838_backfill_groupsearchview_positions_to_gsvstarred.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.backends.base.schema" could not be resolved
+ERROR [5:6] Import "django.db.migrations.state" could not be resolved
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/migrations/0837_create_groupsearchviewlastseen_table.py">
+ERROR [3:8] Import "django.db.models.deletion" could not be resolved
+ERROR [4:8] Import "django.utils.timezone" could not be resolved
+ERROR [5:6] Import "django.db" could not be resolved
+</diagnostics>
+[0m
+[0m# [0mTodos
+[x] Fill plan.md with Technical Context and Constitution Check
+[x] Generate Phase 0: research.md
+[x] Generate Phase 1: data-model.md
+[x] Generate Phase 1: contracts/star-unstar.yaml (OpenAPI)
+[x] Generate Phase 1: quickstart.md
+[ ] Run update-agent-context.sh opencode
+[0m
+[0m$ [0mcd /workspace/repo && .specify/scripts/bash/update-agent-context.sh opencode 2>&1
+INFO: === Updating agent context files for feature 001-star-unstar-views ===
+INFO: Parsing plan data from /workspace/repo/specs/001-star-unstar-views/plan.md
+INFO: Found language: Python 3.13+
+INFO: Found framework: Django 5.2+, Django REST Framework, `sentry.api.bases.organization.OrganizationEndpoint`
+INFO: Found database: PostgreSQL (region silo) — `sentry_groupsearchviewstarred` table already exists
+INFO: Found project type: Web application — backend API only (Django + DRF)
+INFO: Updating specific agent: opencode
+INFO: Updating opencode context file: /workspace/repo/AGENTS.md
+INFO: Updating existing agent context file...
+✓ Updated existing opencode context file
+
+INFO: Summary of changes:
+  - Added language: Python 3.13+
+  - Added framework: Django 5.2+, Django REST Framework, `sentry.api.bases.organization.OrganizationEndpoint`
+  - Added database: PostgreSQL (region silo) — `sentry_groupsearchviewstarred` table already exists
+
+INFO: Usage: .specify/scripts/bash/update-agent-context.sh [claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|codebuddy|shai|q|agy|bob|qoder]
+✓ Agent context update completed successfully
+[0m
+[0m# [0mTodos
+[x] Fill plan.md with Technical Context and Constitution Check
+[x] Generate Phase 0: research.md
+[x] Generate Phase 1: data-model.md
+[x] Generate Phase 1: contracts/star-unstar.yaml (OpenAPI)
+[x] Generate Phase 1: quickstart.md
+[x] Run update-agent-context.sh opencode
+[0m
+All phases complete. Here's the summary:
+
+---
+
+## Plan complete for `001-star-unstar-views`
+
+**Branch**: `001-star-unstar-views`
+**Plan**: `specs/001-star-unstar-views/plan.md`
+
+### Artifacts generated
+
+| File | Purpose |
+|------|---------|
+| `specs/001-star-unstar-views/plan.md` | Technical context, constitution check, source structure |
+| `specs/001-star-unstar-views/research.md` | 10 decisions resolved (no NEEDS CLARIFICATION remaining) |
+| `specs/001-star-unstar-views/data-model.md` | Entity reference, state transitions, write operation pseudocode |
+| `specs/001-star-unstar-views/contracts/star-unstar.yaml` | OpenAPI 3.0 spec for POST + DELETE `/star/` with behavioral contracts |
+| `specs/001-star-unstar-views/quickstart.md` | Step-by-step implementation guide (3 files to touch, test skeleton) |
+
+### Key findings
+
+- **No new model or migration needed** — `GroupSearchViewStarred` already exists with the exact schema required
+- **No new feature flag needed** — use existing `organizations:issue-view-sharing` (consistent with the starred-order endpoint)
+- **`OrganizationGroupSearchViewStarredEndpoint` is already declared in `__init__.py:57`** — it just needs the class + import
+- **3 files to create/modify**:
+  1. **Create** `src/sentry/issues/endpoints/organization_group_search_view_star.py`
+  2. **Modify** `src/sentry/issues/endpoints/__init__.py` (add import)
+  3. **Modify** `src/sentry/api/urls.py` (add `/star/` URL pattern)
+  4. **Create** `tests/sentry/issues/endpoints/test_organization_group_search_view_star.py`
+
+### Constitution check: ALL GATES PASS — no violations
+Collecting metrics...
+Exporting session data...
+Exporting session: ses_389b024a6ffepHEy1Iqi77AWK6Run completed with exit code: 0
+Duration: 456 seconds

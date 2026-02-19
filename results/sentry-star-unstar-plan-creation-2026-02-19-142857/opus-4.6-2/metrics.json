@@ -1,0 +1,15 @@
+{
+  "run_id": "opus-4.6-2",
+  "agent_id": "opus-4.6",
+  "exit_code": 0,
+  "duration_seconds": 528,
+  "token_usage": {
+    "total": 1428949,
+    "input": 28,
+    "output": 16975,
+    "reasoning": 0,
+    "cache_read": 1295347,
+    "cache_write": 116599
+  },
+  "error": null
+}

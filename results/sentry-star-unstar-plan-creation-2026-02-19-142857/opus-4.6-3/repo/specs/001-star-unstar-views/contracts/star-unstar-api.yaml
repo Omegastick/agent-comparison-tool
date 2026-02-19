@@ -1,0 +1,218 @@
+openapi: 3.1.0
+info:
+  title: Star/Unstar Issue Views API
+  version: 0.1.0
+  description: >
+    API for starring and unstarring GroupSearchViews.
+    Part of the Sentry Issue Views feature (organizations:issue-view-sharing).
+
+servers:
+  - url: /api/0/organizations/{organization_id_or_slug}
+
+paths:
+  /group-search-views/{view_id}/star/:
+    put:
+      operationId: starGroupSearchView
+      summary: Star an issue view
+      description: >
+        Star a GroupSearchView for the authenticated user. The view is added to
+        the user's ordered list of starred views. Optionally specify a position
+        to insert at; otherwise the view is appended to the end.
+        Idempotent: starring an already-starred view returns success with no
+        state change.
+      tags:
+        - Issues
+      parameters:
+        - name: organization_id_or_slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Organization slug or numeric ID
+        - name: view_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the GroupSearchView to star
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                position:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Zero-based position to insert the starred view at.
+                    If omitted, the view is appended to the end.
+                    If greater than the current list size, clamped to the end.
+            examples:
+              with_position:
+                summary: Star at a specific position
+                value:
+                  position: 2
+              without_position:
+                summary: Star at the end (default)
+                value: {}
+      responses:
+        '200':
+          description: >
+            View successfully starred (or was already starred — idempotent).
+            Returns the serialized starred view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSearchViewStarredResponse'
+        '400':
+          description: Invalid request (e.g., feature flag disabled, integrity error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: >
+            User does not have access to the view (view is not owned by user
+            and visibility is not "organization")
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >
+            View does not exist in the organization, or feature flag is not enabled
+      security:
+        - bearerAuth: []
+        - sessionAuth: []
+
+    delete:
+      operationId: unstarGroupSearchView
+      summary: Unstar an issue view
+      description: >
+        Remove a GroupSearchView from the authenticated user's starred list.
+        Positions of subsequent starred views are decremented to fill the gap.
+        Idempotent: unstarring a non-starred view returns 204 with no state change.
+      tags:
+        - Issues
+      parameters:
+        - name: organization_id_or_slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Organization slug or numeric ID
+        - name: view_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the GroupSearchView to unstar
+      responses:
+        '204':
+          description: >
+            View successfully unstarred (or was not starred — idempotent).
+            No response body.
+        '404':
+          description: >
+            View does not exist in the organization, or feature flag is not enabled
+      security:
+        - bearerAuth: []
+        - sessionAuth: []
+
+components:
+  schemas:
+    GroupSearchViewStarredResponse:
+      type: object
+      required:
+        - id
+        - name
+        - query
+        - querySort
+        - projects
+        - isAllProjects
+        - environments
+        - timeFilters
+        - lastVisited
+        - dateCreated
+        - dateUpdated
+        - position
+      properties:
+        id:
+          type: string
+          description: String representation of the numeric view ID
+          example: '42'
+        name:
+          type: string
+          description: Display name of the view
+          example: 'High Priority Bugs'
+        query:
+          type: string
+          description: Search query string
+          example: 'is:unresolved issue.priority:[high, medium]'
+        querySort:
+          type: string
+          description: Sort order for the view
+          enum: [date, new, trends, freq, user, inbox]
+          example: 'date'
+        projects:
+          type: array
+          items:
+            type: integer
+          description: List of project IDs
+          example: [1, 2]
+        isAllProjects:
+          type: boolean
+          description: Whether the view applies to all projects
+          example: false
+        environments:
+          type: array
+          items:
+            type: string
+          description: Environment filters
+          example: ['production']
+        timeFilters:
+          type: object
+          description: Time range filters
+          example:
+            period: '14d'
+        lastVisited:
+          type: string
+          nullable: true
+          format: date-time
+          description: Last time this user visited the view
+          example: null
+        dateCreated:
+          type: string
+          format: date-time
+          description: When the view was created
+        dateUpdated:
+          type: string
+          format: date-time
+          description: When the view was last updated
+        position:
+          type: integer
+          minimum: 0
+          description: Zero-based position in the user's starred views list
+          example: 0
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: 'You do not have access to this view'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: 'DSN or Auth Token'
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: session

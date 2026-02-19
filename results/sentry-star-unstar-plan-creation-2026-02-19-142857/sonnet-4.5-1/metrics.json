@@ -1,0 +1,15 @@
+{
+  "run_id": "sonnet-4.5-1",
+  "agent_id": "sonnet-4.5",
+  "exit_code": 0,
+  "duration_seconds": 718,
+  "token_usage": {
+    "total": 1466221,
+    "input": 125944,
+    "output": 31329,
+    "reasoning": 0,
+    "cache_read": 1308948,
+    "cache_write": 0
+  },
+  "error": null
+}

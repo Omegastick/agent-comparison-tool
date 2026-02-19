@@ -1,0 +1,15 @@
+{
+  "run_id": "gpt-5-mini-1",
+  "agent_id": "gpt-5-mini",
+  "exit_code": 0,
+  "duration_seconds": 242,
+  "token_usage": {
+    "total": 429198,
+    "input": 164058,
+    "output": 9396,
+    "reasoning": 0,
+    "cache_read": 255744,
+    "cache_write": 0
+  },
+  "error": null
+}

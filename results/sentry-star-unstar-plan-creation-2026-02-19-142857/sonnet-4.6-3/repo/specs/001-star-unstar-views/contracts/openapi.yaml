@@ -1,0 +1,299 @@
+openapi: 3.0.3
+info:
+  title: Star / Unstar Shared Issue Views
+  description: |
+    API contract for the star and unstar operations on GroupSearchViews.
+    Feature branch: 001-star-unstar-views.
+  version: '1.0.0'
+
+servers:
+  - url: https://sentry.io/api/0
+    description: Sentry production API
+
+tags:
+  - name: Issue Views
+    description: Operations on saved issue search views
+
+paths:
+  /organizations/{organization_id_or_slug}/group-search-views/{view_id}/star/:
+    parameters:
+      - name: organization_id_or_slug
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Organization slug or numeric ID
+      - name: view_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Numeric ID of the GroupSearchView to star/unstar
+
+    post:
+      summary: Star a view
+      description: |
+        Adds the specified view to the current user's starred views list.
+
+        **Idempotent**: If the view is already starred, returns `200` with the
+        existing starred view data and no changes are made.
+
+        **Position semantics**:
+        - If `position` is omitted, the view is appended to the end of the list.
+        - If `position` is provided, the view is inserted at that index and all
+          existing views at that index or later are shifted down (position + 1).
+        - If `position` exceeds the current list length, it is clamped to the end.
+
+        **Access control**: The user must either own the view (`user_id` matches)
+        or the view must have `visibility = "organization"` within the same org.
+
+        **Feature flag**: `organizations:issue-view-sharing` must be enabled.
+      operationId: starGroupSearchView
+      tags: [Issue Views]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StarViewRequest'
+            examples:
+              append_to_end:
+                summary: Star without specifying position (appends)
+                value: {}
+              insert_at_position:
+                summary: Star at position 1
+                value:
+                  position: 1
+      responses:
+        '200':
+          description: View was already starred (idempotent — no change made)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarredViewResponse'
+        '201':
+          description: View successfully starred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarredViewResponse'
+        '400':
+          description: Invalid request (e.g., negative position, concurrent conflict)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_position:
+                  value:
+                    detail: 'position must be a non-negative integer'
+                concurrent_conflict:
+                  value:
+                    detail: 'Concurrent modification conflict, please retry'
+        '403':
+          description: User does not have access to the view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_access:
+                  value:
+                    detail: 'You do not have access to this view'
+        '404':
+          description: View not found in this organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Unstar a view
+      description: |
+        Removes the specified view from the current user's starred views list.
+        All views with a higher position are shifted down (position - 1) to
+        maintain a contiguous 0-indexed list.
+
+        **Idempotent**: If the view is not currently starred, returns `204`
+        without error.
+
+        **Feature flag**: `organizations:issue-view-sharing` must be enabled.
+      operationId: unstarGroupSearchView
+      tags: [Issue Views]
+      responses:
+        '204':
+          description: View successfully unstarred (or was not starred — idempotent)
+        '404':
+          description: View not found in this organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Existing endpoints (for context / cross-reference)
+  /organizations/{organization_id_or_slug}/group-search-views/:
+    get:
+      summary: List starred views (existing)
+      description: |
+        Returns the current user's starred views ordered by position.
+        Existing endpoint — not modified by this feature.
+        Route name: `sentry-api-0-organization-group-search-views`
+      operationId: listGroupSearchViews
+      tags: [Issue Views]
+      responses:
+        '200':
+          description: Paginated list of starred views
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StarredViewResponse'
+
+  /organizations/{organization_id_or_slug}/group-search-views-starred-order/:
+    put:
+      summary: Reorder starred views (existing)
+      description: |
+        Bulk-reorders all starred views for the current user.
+        Existing endpoint — not modified by this feature.
+        Route name: `sentry-api-0-organization-group-search-view-starred-order`
+      operationId: reorderStarredViews
+      tags: [Issue Views]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [view_ids]
+              properties:
+                view_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: Complete ordered list of all currently starred view IDs
+      responses:
+        '204':
+          description: Successfully reordered
+        '400':
+          description: Mismatch between provided and existing starred views
+
+components:
+  schemas:
+    StarViewRequest:
+      type: object
+      properties:
+        position:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: |
+            0-indexed position to insert the view at. If omitted, appends to end.
+            If larger than current list size, clamped to end.
+          example: 1
+      additionalProperties: false
+
+    StarredViewResponse:
+      type: object
+      description: |
+        A starred GroupSearchView with position metadata.
+        Produced by GroupSearchViewStarredSerializer.
+      required:
+        - id
+        - name
+        - query
+        - querySort
+        - projects
+        - isAllProjects
+        - environments
+        - timeFilters
+        - position
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+          description: Numeric ID of the GroupSearchView, returned as string
+          example: '12345'
+        name:
+          type: string
+          description: Display name of the view
+          example: 'My Critical Issues'
+        query:
+          type: string
+          description: Issue search query string
+          example: 'is:unresolved issue.priority:[high, medium]'
+        querySort:
+          type: string
+          description: Sort order for issues in this view
+          example: 'date'
+          enum: ['date', 'new', 'priority', 'freq', 'user']
+        projects:
+          type: array
+          items:
+            type: integer
+          description: Project IDs scoped to this view. Empty array = "My Projects"
+          example: []
+        isAllProjects:
+          type: boolean
+          description: If true, view covers all projects regardless of `projects` field
+          example: false
+        environments:
+          type: array
+          items:
+            type: string
+          description: Environment names scoped to this view
+          example: ['production']
+        timeFilters:
+          type: object
+          description: Time filter configuration
+          example:
+            period: '14d'
+          properties:
+            period:
+              type: string
+              example: '14d'
+        lastVisited:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 timestamp of last visit by this user, or null
+          example: '2026-02-19T10:00:00.000Z'
+        position:
+          type: integer
+          description: 0-indexed position in the user's starred views list
+          example: 0
+        dateCreated:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 creation timestamp
+          example: '2026-02-16T09:00:00.000Z'
+        dateUpdated:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 last-updated timestamp
+          example: '2026-02-19T10:00:00.000Z'
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message (DRF convention)
+          example: 'You do not have access to this view'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+
+security:
+  - bearerAuth: []
+  - sessionAuth: []

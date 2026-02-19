@@ -1,0 +1,555 @@
+Starting benchmark run: opus-4.6-3
+Timestamp: 2026-02-19T14:05:42+00:00
+Cloning repository (shallow, branch/tag: 001-star-unstar-views): https://github.com/Omegastick/sentry
+Cloning into '/workspace/repo'...
+Updating files:  91% (15375/16850)Updating files:  92% (15502/16850)Updating files:  93% (15671/16850)Updating files:  94% (15839/16850)Updating files:  95% (16008/16850)Updating files:  96% (16176/16850)Updating files:  97% (16345/16850)Updating files:  98% (16513/16850)Updating files:  99% (16682/16850)Updating files: 100% (16850/16850)Updating files: 100% (16850/16850), done.
+Expanding command 'speckit.plan' with args: '001-star-unstar-views'
+Running: opencode run -m anthropic/claude-opus-4-6
+Performing one time database migration, may take a few minutes...
+sqlite-migration:done
+Database migration complete.
+[0m
+> build · claude-opus-4-6
+[0m
+I'll start by running the setup script and reading the necessary context files.
+[0m$ [0m.specify/scripts/bash/setup-plan.sh --json
+Copied plan template to /workspace/repo/specs/001-star-unstar-views/plan.md
+{"FEATURE_SPEC":"/workspace/repo/specs/001-star-unstar-views/spec.md","IMPL_PLAN":"/workspace/repo/specs/001-star-unstar-views/plan.md","SPECS_DIR":"/workspace/repo/specs/001-star-unstar-views","BRANCH":"001-star-unstar-views","HAS_GIT":"true"}
+[0m
+[0m→ [0mRead specs/001-star-unstar-views/spec.md
+[0m→ [0mRead .specify/memory/constitution.md
+[0m→ [0mRead specs/001-star-unstar-views/plan.md
+[0m
+[0m# [0mTodos
+[ ] Fill Technical Context and Constitution Check in plan.md
+[ ] Phase 0: Research - explore existing codebase patterns for GroupSearchView, starred views, similar features
+[ ] Phase 0: Generate research.md with all findings and resolved unknowns
+[ ] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report final artifacts and branch
+[0m
+Let me now research the existing codebase to understand GroupSearchView, any existing starring patterns, and relevant endpoint conventions.
+[0m• [0mResearch GroupSearchView model[90m Explore Agent[0m
+[0m• [0mResearch starring/position patterns[90m Explore Agent[0m
+Resolving dependencies
+[0m• [0mResearch endpoint patterns and permissions[90m Explore Agent[0m
+Resolved, downloaded and extracted [6]
+Saved lockfile
+[0m✓ [0mResearch GroupSearchView model[90m Explore Agent[0m
+[0m✓ [0mResearch endpoint patterns and permissions[90m Explore Agent[0m
+[0m✓ [0mResearch starring/position patterns[90m Explore Agent[0m
+Excellent. The research reveals that `GroupSearchViewStarred` model already exists. Now let me read the key files directly to get exact code for the plan.
+[0m→ [0mRead src/sentry/models/groupsearchviewstarred.py
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_starred_order.py
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_details.py
+[0m→ [0mRead src/sentry/issues/endpoints/organization_group_search_view_visit.py
+Now let me also check the existing endpoints `__init__.py` and read a few more key reference files:
+[0m→ [0mRead src/sentry/issues/endpoints/__init__.py
+[0m→ [0mRead src/sentry/models/groupsearchview.py
+[0m→ [0mRead src/sentry/api/serializers/models/groupsearchview.py
+[0m
+[0m# [0mTodos
+[x] Fill Technical Context and Constitution Check in plan.md
+[x] Phase 0: Research - explore existing codebase patterns for GroupSearchView, starred views, similar features
+[ ] Phase 0: Generate research.md with all findings and resolved unknowns
+[ ] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report final artifacts and branch
+[0m
+Now I have complete context. Let me generate the plan.md, research.md, and then the Phase 1 artifacts. I'll start by writing research.md and updating plan.md:
+[0m← [0mWrite specs/001-star-unstar-views/research.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/dashboard.py">
+ERROR [6:6] Import "django.db" could not be resolved
+ERROR [7:6] Import "django.utils" could not be resolved
+ERROR [81:14] Import "django.db" could not be resolved
+ERROR [27:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardProject.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [40:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.dashboard.DashboardFavoriteUser.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardFavoriteUser.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [65:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.Dashboard.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.Dashboard.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [159:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardTombstone.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardTombstone.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/projectbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [23:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.projectbookmark.ProjectBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.projectbookmark.ProjectBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+[0m
+Now let me update the plan.md with the filled-in content and write the Phase 1 artifacts:
+[0m← [0mWrite specs/001-star-unstar-views/plan.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/dashboard.py">
+ERROR [6:6] Import "django.db" could not be resolved
+ERROR [7:6] Import "django.utils" could not be resolved
+ERROR [81:14] Import "django.db" could not be resolved
+ERROR [27:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardProject.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [40:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.dashboard.DashboardFavoriteUser.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardFavoriteUser.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [65:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.Dashboard.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.Dashboard.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [159:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardTombstone.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardTombstone.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/projectbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [23:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.projectbookmark.ProjectBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.projectbookmark.ProjectBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+[0m
+[0m# [0mTodos
+[x] Fill Technical Context and Constitution Check in plan.md
+[x] Phase 0: Research - explore existing codebase patterns for GroupSearchView, starred views, similar features
+[x] Phase 0: Generate research.md with all findings and resolved unknowns
+[ ] Phase 1: Generate data-model.md
+[ ] Phase 1: Generate API contracts in contracts/
+[ ] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report final artifacts and branch
+[0m
+Now let me generate data-model.md, contracts, and quickstart.md in parallel:
+[0m← [0mWrite specs/001-star-unstar-views/data-model.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/dashboard.py">
+ERROR [6:6] Import "django.db" could not be resolved
+ERROR [7:6] Import "django.utils" could not be resolved
+ERROR [81:14] Import "django.db" could not be resolved
+ERROR [27:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardProject.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [40:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.dashboard.DashboardFavoriteUser.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardFavoriteUser.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [65:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.Dashboard.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.Dashboard.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [159:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardTombstone.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardTombstone.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/projectbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [23:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.projectbookmark.ProjectBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.projectbookmark.ProjectBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+[0m
+[0m$ [0mmkdir -p /workspace/repo/specs/001-star-unstar-views/contracts
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/contracts/star-unstar-api.yaml
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/dashboard.py">
+ERROR [6:6] Import "django.db" could not be resolved
+ERROR [7:6] Import "django.utils" could not be resolved
+ERROR [81:14] Import "django.db" could not be resolved
+ERROR [27:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardProject.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [40:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.dashboard.DashboardFavoriteUser.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardFavoriteUser.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [65:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.Dashboard.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.Dashboard.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [159:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardTombstone.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardTombstone.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/projectbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [23:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.projectbookmark.ProjectBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.projectbookmark.ProjectBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+[0m
+[0m← [0mWrite specs/001-star-unstar-views/quickstart.md
+Wrote file successfully.
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupsearchview.py">
+ERROR [3:6] Import "django.db" could not be resolved
+ERROR [4:6] Import "django.db.models" could not be resolved
+ERROR [5:6] Import "django.utils.translation" could not be resolved
+ERROR [26:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.groupsearchview.GroupSearchViewProject.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchViewProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [77:11] "Meta" overrides symbol of same name in class "DefaultFieldsModelExisting"
+  "src.sentry.models.groupsearchview.GroupSearchView.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModelExisting.Meta"
+  Type "type[src.sentry.models.groupsearchview.GroupSearchView.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModelExisting.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/savedsearch.py">
+ERROR [4:6] Import "django.db" could not be resolved
+ERROR [5:6] Import "django.db.models" could not be resolved
+ERROR [6:6] Import "django.utils" could not be resolved
+ERROR [7:6] Import "django.utils.translation" could not be resolved
+ERROR [70:9] No parameter named "max_length"
+ERROR [70:24] No parameter named "default"
+ERROR [70:50] No parameter named "choices"
+ERROR [70:84] No parameter named "null"
+ERROR [88:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.savedsearch.SavedSearch.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.savedsearch.SavedSearch.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/dashboard.py">
+ERROR [6:6] Import "django.db" could not be resolved
+ERROR [7:6] Import "django.utils" could not be resolved
+ERROR [81:14] Import "django.db" could not be resolved
+ERROR [27:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardProject.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardProject.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [40:11] "Meta" overrides symbol of same name in class "DefaultFieldsModel"
+  "src.sentry.models.dashboard.DashboardFavoriteUser.Meta" is not assignable to "src.sentry.db.models.base.DefaultFieldsModel.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardFavoriteUser.Meta]" is not assignable to type "type[src.sentry.db.models.base.DefaultFieldsModel.Meta]"
+ERROR [65:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.Dashboard.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.Dashboard.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+ERROR [159:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.dashboard.DashboardTombstone.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.dashboard.DashboardTombstone.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/projectbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [23:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.projectbookmark.ProjectBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.projectbookmark.ProjectBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+
+LSP errors detected in other files:
+<diagnostics file="/workspace/repo/src/sentry/models/groupbookmark.py">
+ERROR [1:6] Import "django.conf" could not be resolved
+ERROR [2:6] Import "django.db" could not be resolved
+ERROR [3:6] Import "django.utils" could not be resolved
+ERROR [25:11] "Meta" overrides symbol of same name in class "Model"
+  "src.sentry.models.groupbookmark.GroupBookmark.Meta" is not assignable to "src.sentry.db.models.base.Model.Meta"
+  Type "type[src.sentry.models.groupbookmark.GroupBookmark.Meta]" is not assignable to type "type[src.sentry.db.models.base.Model.Meta]"
+</diagnostics>
+[0m
+[0m# [0mTodos
+[x] Fill Technical Context and Constitution Check in plan.md
+[x] Phase 0: Research - explore existing codebase patterns for GroupSearchView, starred views, similar features
+[x] Phase 0: Generate research.md with all findings and resolved unknowns
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[ ] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report final artifacts and branch
+[0m
+[0m$ [0mls /workspace/repo/.specify/scripts/bash/
+check-prerequisites.sh
+common.sh
+create-new-feature.sh
+setup-plan.sh
+update-agent-context.sh
+[0m
+[0m$ [0m.specify/scripts/bash/update-agent-context.sh opencode
+INFO: === Updating agent context files for feature 001-star-unstar-views ===
+INFO: Parsing plan data from /workspace/repo/specs/001-star-unstar-views/plan.md
+INFO: Found language: Python 3.13+
+INFO: Found framework: Django 5.2+, Django REST Framework, Celery (not directly used)
+INFO: Found database: PostgreSQL (via existing `GroupSearchViewStarred` model)
+INFO: Found project type: Web (backend-only for this feature)
+INFO: Updating specific agent: opencode
+INFO: Updating opencode context file: /workspace/repo/AGENTS.md
+INFO: Updating existing agent context file...
+✓ Updated existing opencode context file
+
+INFO: Summary of changes:
+  - Added language: Python 3.13+
+  - Added framework: Django 5.2+, Django REST Framework, Celery (not directly used)
+  - Added database: PostgreSQL (via existing `GroupSearchViewStarred` model)
+
+INFO: Usage: .specify/scripts/bash/update-agent-context.sh [claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|codebuddy|shai|q|agy|bob|qoder]
+✓ Agent context update completed successfully
+[0m
+Now let me re-evaluate the Constitution Check post-design:
+[0m# [0mTodos
+[x] Fill Technical Context and Constitution Check in plan.md
+[x] Phase 0: Research - explore existing codebase patterns for GroupSearchView, starred views, similar features
+[x] Phase 0: Generate research.md with all findings and resolved unknowns
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[x] Phase 1: Run update-agent-context.sh
+[ ] Re-evaluate Constitution Check post-design
+[ ] Report final artifacts and branch
+[0m
+Post-design Constitution re-evaluation — let me verify every principle against the designed solution:
+
+**Post-Design Constitution Re-Check**:
+
+| Principle | Status | Post-Design Evidence |
+|-----------|--------|---------------------|
+| I. Convention Over Configuration | PASS | Endpoint mirrors `organization_group_search_view_visit.py` exactly in structure. Same base class, same decorator, same feature flag pattern, same permission class pattern. |
+| II. Security by Default | PASS | View lookup scoped to `organization`. Access check: `view.user_id != request.user.id and view.visibility != ORGANIZATION` → 403. Directly copied from `GroupSearchViewStarredOrderSerializer.validate_view_ids()`. |
+| III. Framework Trust | PASS | Uses `OrganizationEndpoint` (auto org resolution + permission check), `@region_silo_endpoint`, DRF serializer for input validation. No custom abstractions. |
+| IV. Batch-Aware Data Access | PASS | Single-item operation. Position shift is a single `filter().update()` bulk query, not N+1. Serializer for response uses existing registered serializer. |
+| V. Test-Driven with Factories | PASS | Test plan uses `APITestCase` with `self.create_*` factories. Test file mirrors source path. No `Model.objects.create` in tests. |
+| VI. Incremental Delivery | PASS | Gated behind `organizations:issue-view-sharing` (existing flag). Endpoint returns 404 when flag disabled. |
+| Silo Boundaries | PASS | All models are `@region_silo_model`, endpoint is `@region_silo_endpoint`. No cross-silo access. |
+| Backwards-Compatible Migrations | PASS | No migrations needed — reuses existing `GroupSearchViewStarred` model. |
+| API Contract Stability | PASS | Response uses camelCase (`querySort`, `isAllProjects`, `timeFilters`), IDs as strings, errors use `"detail"` key. |
+
+**Gate result: ALL PASS** — no violations introduced by the design.
+[0m# [0mTodos
+[x] Fill Technical Context and Constitution Check in plan.md
+[x] Phase 0: Research - explore existing codebase patterns for GroupSearchView, starred views, similar features
+[x] Phase 0: Generate research.md with all findings and resolved unknowns
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[x] Phase 1: Run update-agent-context.sh
+[x] Re-evaluate Constitution Check post-design
+[ ] Report final artifacts and branch
+[0m
+Let me verify all artifacts were created correctly:
+[0m$ [0mfind /workspace/repo/specs/001-star-unstar-views -type f | sort
+/workspace/repo/specs/001-star-unstar-views/contracts/star-unstar-api.yaml
+/workspace/repo/specs/001-star-unstar-views/data-model.md
+/workspace/repo/specs/001-star-unstar-views/plan.md
+/workspace/repo/specs/001-star-unstar-views/quickstart.md
+/workspace/repo/specs/001-star-unstar-views/research.md
+/workspace/repo/specs/001-star-unstar-views/spec.md
+[0m
+[0m# [0mTodos
+[x] Fill Technical Context and Constitution Check in plan.md
+[x] Phase 0: Research - explore existing codebase patterns for GroupSearchView, starred views, similar features
+[x] Phase 0: Generate research.md with all findings and resolved unknowns
+[x] Phase 1: Generate data-model.md
+[x] Phase 1: Generate API contracts in contracts/
+[x] Phase 1: Generate quickstart.md
+[x] Phase 1: Run update-agent-context.sh
+[x] Re-evaluate Constitution Check post-design
+[x] Report final artifacts and branch
+[0m
+## Planning Complete - Final Report
+
+**Branch**: `001-star-unstar-views`
+**Implementation Plan**: `/workspace/repo/specs/001-star-unstar-views/plan.md`
+
+### Generated Artifacts
+
+| File | Phase | Description |
+|------|-------|-------------|
+| `specs/001-star-unstar-views/plan.md` | Setup | Implementation plan with Technical Context and Constitution Check |
+| `specs/001-star-unstar-views/research.md` | Phase 0 | 11 research items, all NEEDS CLARIFICATION resolved |
+| `specs/001-star-unstar-views/data-model.md` | Phase 1 | Entity definitions, access rules, state transitions |
+| `specs/001-star-unstar-views/contracts/star-unstar-api.yaml` | Phase 1 | OpenAPI 3.1 spec for PUT/DELETE `/group-search-views/{view_id}/star/` |
+| `specs/001-star-unstar-views/quickstart.md` | Phase 1 | Implementation guide with full endpoint code, registration steps, test plan |
+| `AGENTS.md` | Phase 1 | Updated with technology context via `update-agent-context.sh` |
+
+### Key Findings
+
+- **No new model or migration needed** -- `GroupSearchViewStarred` already exists at `src/sentry/models/groupsearchviewstarred.py`
+- **Stale forward reference confirmed** -- `__init__.py` line 57 references `OrganizationGroupSearchViewStarredEndpoint` but the class doesn't exist yet; the import just needs to be added
+- **Feature flag**: `organizations:issue-view-sharing` (existing)
+- **Constitution Check**: ALL PASS (pre-design and post-design)
+- **Scope**: 1 new endpoint file, 1 new test file, 2 file modifications (`__init__.py`, `urls.py`)
+Collecting metrics...
+Exporting session data...
+Exporting session: ses_389c65838ffeIRrOUnhNJaoXcfRun completed with exit code: 0
+Duration: 490 seconds

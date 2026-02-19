@@ -1,0 +1,276 @@
+openapi: 3.0.3
+info:
+  title: Sentry API - Group Search View Star/Unstar
+  description: |
+    API endpoints for starring and unstarring GroupSearchView (issue views) with position management.
+
+    This API allows users to bookmark issue views they find useful, organizing them in a personally-ordered
+    list for quick access. The API follows Sentry's established patterns for REST endpoints with
+    organization scoping and feature flag protection.
+  version: 0.0.1
+  contact:
+    name: Sentry Issues Team
+
+servers:
+  - url: https://sentry.io/api/0
+    description: Sentry Production API
+  - url: http://localhost:8000/api/0
+    description: Local Development
+
+security:
+  - auth_token: []
+  - session: []
+
+tags:
+  - name: Group Search Views
+    description: Operations on saved issue search views
+
+paths:
+  /organizations/{organization_id_or_slug}/group-search-views/{view_id}/star/:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdOrSlug'
+      - $ref: '#/components/parameters/ViewId'
+
+    post:
+      summary: Star a view
+      description: |
+        Star (bookmark) a GroupSearchView to add it to the user's personal list of starred views.
+
+        **Behavior**:
+        - If no position is specified, the view is appended to the end of the user's starred list
+        - If a position is specified, the view is inserted at that position and subsequent views are shifted down
+        - Operation is idempotent: starring an already-starred view returns success without changes
+
+        **Access Requirements**:
+        - User must be authenticated
+        - User must be a member of the organization
+        - View must be accessible to the user (based on visibility):
+          - OWNER views: only the owner can star
+          - ORGANIZATION views: any org member can star
+
+        **Feature Flag**: Requires `organizations:issue-view-sharing` to be enabled.
+      operationId: starGroupSearchView
+      tags:
+        - Group Search Views
+      requestBody:
+        description: Optional position for the starred view in the user's list
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                position:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  description: |
+                    0-based position where the view should be inserted in the user's starred list.
+                    If omitted, the view is appended to the end.
+                    If greater than the current list size, it's clamped to the end.
+                  example: 2
+            examples:
+              append:
+                summary: Star at end of list
+                description: Omit position to append to the end
+                value: {}
+              insert:
+                summary: Star at specific position
+                description: Insert at position 2 (0-indexed)
+                value:
+                  position: 2
+      responses:
+        '204':
+          description: |
+            View successfully starred or already starred (idempotent).
+            No response body.
+        '400':
+          description: |
+            Bad request. Possible reasons:
+            - Feature flag not enabled
+            - Invalid position value (negative)
+            - Position conflict (rare - concurrent operations)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                feature_disabled:
+                  summary: Feature flag disabled
+                  value:
+                    detail: 'Feature not enabled for this organization'
+                invalid_position:
+                  summary: Invalid position
+                  value:
+                    detail: 'Position must be >= 0'
+                position_conflict:
+                  summary: Concurrent position conflict
+                  value:
+                    detail: 'Position conflict. Please retry.'
+        '403':
+          description: |
+            Permission denied. User does not have access to the view.
+            Typically occurs when trying to star an OWNER-visibility view owned by another user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: 'Permission denied'
+        '404':
+          description: |
+            View not found. Either:
+            - View ID doesn't exist
+            - View exists but is in a different organization
+            - View was deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: 'View not found'
+
+    delete:
+      summary: Unstar a view
+      description: |
+        Unstar (remove bookmark) a GroupSearchView from the user's personal list.
+
+        **Behavior**:
+        - Removes the view from the user's starred list
+        - Automatically adjusts positions of remaining views to maintain contiguous ordering
+        - Operation is idempotent: unstarring a non-starred view returns success
+
+        **Access Requirements**:
+        - User must be authenticated
+        - User must be a member of the organization
+        - View must exist (but doesn't need to check accessibility for unstar)
+
+        **Feature Flag**: Requires `organizations:issue-view-sharing` to be enabled.
+      operationId: unstarGroupSearchView
+      tags:
+        - Group Search Views
+      responses:
+        '204':
+          description: |
+            View successfully unstarred or was not starred (idempotent).
+            No response body.
+        '400':
+          description: |
+            Bad request. Possible reasons:
+            - Feature flag not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: 'Feature not enabled for this organization'
+        '404':
+          description: |
+            View not found. Either:
+            - View ID doesn't exist
+            - View exists but is in a different organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: 'View not found'
+
+components:
+  parameters:
+    OrganizationIdOrSlug:
+      name: organization_id_or_slug
+      in: path
+      required: true
+      description: |
+        The ID or slug of the organization. 
+        Examples: `123456` or `my-organization`
+      schema:
+        type: string
+      example: sentry
+
+    ViewId:
+      name: view_id
+      in: path
+      required: true
+      description: |
+        The unique identifier of the GroupSearchView.
+        Must be a numeric ID.
+      schema:
+        type: integer
+        format: int64
+      example: 42
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: 'View not found'
+      description: |
+        Standard error response format used across Sentry API.
+        The `detail` field contains a human-readable error message.
+
+  securitySchemes:
+    auth_token:
+      type: http
+      scheme: bearer
+      description: |
+        Sentry authentication token. 
+        Pass in Authorization header: `Authorization: Bearer {token}`
+
+    session:
+      type: apiKey
+      in: cookie
+      name: sentrysid
+      description: |
+        Session-based authentication using browser cookies.
+        Typically used by the Sentry web UI.
+
+# Additional Notes:
+#
+# 1. Position Management:
+#    - Positions are 0-indexed
+#    - First starred view has position 0
+#    - Positions are always contiguous (no gaps)
+#    - When a view is starred at position P, all views at position >= P are shifted down
+#    - When a view is unstarred, all views at position > deleted_position are shifted up
+#
+# 2. Idempotency:
+#    - Star operation: If view is already starred, returns 204 without changing state
+#    - Unstar operation: If view is not starred, returns 204 without error
+#    - This makes the operations safe to retry
+#
+# 3. Organization Scoping:
+#    - All operations are scoped to the organization in the URL path
+#    - Users can only star views within organizations they are members of
+#    - Cross-organization starring is prevented at the endpoint level
+#
+# 4. Visibility Rules:
+#    - OWNER views: Only the view owner can star/access
+#    - ORGANIZATION views: Any organization member can star
+#    - Attempting to star a view without access returns 403
+#
+# 5. Feature Flag:
+#    - Feature is gated behind "organizations:issue-view-sharing" flag
+#    - If flag is disabled, all operations return 400 with appropriate error message
+#
+# 6. Related Endpoints:
+#    - GET /organizations/{org}/group-search-views/ - List starred views
+#    - PUT /organizations/{org}/group-search-views-starred-order/ - Bulk reorder starred views
+#    - GET /organizations/{org}/group-search-views/{view_id}/ - Get view details
+#
+# 7. Data Model:
+#    - Stars are stored in GroupSearchViewStarred join table
+#    - Each starred entry has: user_id, organization_id, group_search_view_id, position
+#    - Unique constraint on (user_id, organization_id, position) with DEFERRED
+#    - CASCADE delete: if view is deleted, all stars are automatically removed
+#
+# 8. Performance:
+#    - Star operation: O(1) without position, O(N) with position (N = views >= target position)
+#    - Unstar operation: O(N) where N = views > deleted position
+#    - All operations wrapped in atomic transactions for consistency
