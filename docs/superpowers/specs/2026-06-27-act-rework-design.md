@@ -1,7 +1,7 @@
 # ACT Rework — Model-Comparison Tool
 
 Date: 2026-06-27
-Status: design approved; tool rework ready to plan. The three concrete vLLM tasks are a tracked follow-up (see §8).
+Status: design approved; tool rework ready to plan. All three vLLM tasks are chosen (§8); writing their experiment configs is the remaining task-side step.
 
 ## 1. Why this exists
 
@@ -96,23 +96,22 @@ Notes / corrections (source-verified):
 - **GPT-5.4 transport:** the built-in `gpt-5.4` uses `openai-responses`. Prefer it — forcing `openai-completions` (which would require a full custom model def with `"api":"openai-completions"`) works but loses cross-turn encrypted-reasoning replay + cache affinity, degrading agentic quality/cost on a reasoning model. Optional stricter reproducibility: define a custom model `gpt-5.4-2026-03-05` under `openai` with `"api":"openai-responses"` to pin the exact dated snapshot.
 - **z.ai:** use the built-in `zai/glm-5.2` (it carries the correct z.ai compat: `thinkingFormat:"zai"`, `zaiToolStream:true`, `supportsReasoningEffort:true`). Do **not** rely on baseUrl-only auto-detection to supply those — a hand-rolled custom provider would not get them.
 
-## 8. The three vLLM tasks (tracked next step — not yet final)
+## 8. The three vLLM tasks (chosen)
 
-Task shapes: (1) write a Jira ticket from a vague need; (2) shape an API; (3) one genuinely-binary fix. All reference the real vLLM codebase. Surveyed and adversarially reality-checked against vLLM `main` @ `9036c89ee410b30913ca8b7d362a7d0805583b51` (2026-06-27).
+Each task shape mapped to a real vLLM home. Surveyed and adversarially reality-checked against vLLM `main` @ `9036c89ee410b30913ca8b7d362a7d0805583b51` (2026-06-27); pin `target.commit` there so each gap/defect is present at run time.
 
-**Authoring methodology (applies to all three — a finding from the survey):** nearly every real candidate has open PRs racing to merge *and* a pre-chewed solution sitting in its issue thread. To keep the comparison measuring capability rather than cribbing/luck:
-- Pin `target.commit` to `9036c89…` so the defect/gap is present at run time.
-- Phrase each task as the **stakeholder need / symptom only** — no issue link, no PR reference, no solution hints.
-- Deny the in-container agent network access to GitHub issues.
-- Re-verify each task is still unsolved on the pinned commit immediately before running.
+1. **Jira ticket from a vague need (judgment) — scheduler priority-preemption starvation** (issue #40004). Stakeholder need: "we tag requests as high-priority, but under heavy load they still wait behind already-running low-priority work — priority seems to do nothing once the box is full." The model must understand vLLM's V1 scheduler (running vs waiting queues, the KV-cache-block budget vs the `max_num_seqs` concurrency-slot budget, where preemption currently fires) and decompose that into well-scoped tickets. Code area: `vllm/v1/core/sched/`. No single correct ticket — this is a subjective decomposition/ticket-quality test.
+2. **Shape an API (judgment) — per-request timing metrics** (issue #40076). vLLM tracks per-request timing (queue/prefill/decode/ITL) internally but only exposes it as aggregate Prometheus/OTel; a caller can't get the timings for their own request. Genuinely open design fork with no agreed answer — response-body field vs HTTP headers vs OTEL are competing live proposals and maintainers are split. The opt-in surface, schema, and streaming placement are all real design calls. Code area: `vllm/entrypoints/openai/`.
+3. **Binary fix (control) — `moe_wna16` GEMM output-index integer overflow** (issue #45884). In `csrc/libtorch_stable/moe/moe_wna16.cu` (~line 219), the output offset `token_index * size_n + offset_n` is computed in 32-bit and overflows for large token counts, causing an out-of-bounds `atomicAdd`. One correct fix: widen to 64-bit before the multiply (`static_cast<int64_t>(token_index) * size_n + offset_n`), matching the in-file precedent at lines ~95-97. **Verified clean control** (reality-check, 2026-06-28): present at the pinned commit and current main, unmerged, no maintainer/reviewer dispute in any thread, two independent PRs (#45907, #46209) converge on the identical cast. This is the objectively-correct-answer the control task requires.
 
-Current candidate state:
+**Framing / authoring rules.** Tasks 1 and 2 are subjective (judgment) and task 3 is the objective control; there is no ground-truth grading — Isaac assesses the outputs qualitatively. So the only authoring rules that matter:
+- Give the model the **need / symptom only** — no issue link, no PR reference, no in-container GitHub access — so it reasons from the codebase, not from a public thread. This neutralises the "the answer is discussed online" concern; it is *not* a reason to avoid real or popular issues.
+- Pin `target.commit` so the gap/defect is present at run time.
+- For the binary control specifically, the fix must be objectively correct so that model *convergence* is meaningful — verified for task 3 above. (The earlier "benchmark-hygiene" objections — contamination, merge-race, grading against a canonical PR — do not apply here: this is a subjective comparison, not a graded benchmark.)
 
-- **Shape-an-API — ACCEPTED:** "expose per-request timing metrics to the caller" (vLLM tracks queue/prefill/decode/ITL internally but only as aggregate Prometheus/OTel; the caller can't get it for their own request). Genuine open design fork — body field vs response headers vs OTEL are competing live proposals, maintainers split, no single correct answer. Confirmed not implemented on the pinned commit. Caveat: a draft PR exists as prior art (leakage risk — withhold it).
-- **Jira-ticket — RE-PICK NEEDED:** the strongest *shape* match (scheduler priority-preemption starvation) is contaminated (4 racing PRs + spoon-fed fix in-thread) and merge-race-risky. Cleaner unverified alternates to reality-check next: `cache_salt` prompt-cache isolation parity gap on the Anthropic Messages entrypoint (small, additive plumbing across an analogous surface); or a LoRA cache-residency Prometheus metric (small, additive).
-- **Binary-fix — RE-PICK NEEDED:** the surveyed top pick (a test `enforce_eager` one-liner) is **not** actually binary — maintainers dispute the diagnosis and both convergent PRs were closed as bad. The genuinely-binary candidate to reality-check next is the **`moe_wna16` GEMM int32→int64 output-index overflow** (`csrc/.../moe_wna16.cu`): a 64-bit cast with an explicit in-file precedent (lines 95-97) dictating the exact form. One correct outcome by inspection; behavioural repro is GPU-gated but the fix is decidable from the source.
+Mild residual (judgment tasks only, not a blocker): a heavily-discussed need may be partly memorised by the models, nudging them toward the community's framing rather than fresh reasoning — unavoidable for any real popular issue.
 
-Next action for this section: a short reality-check pass on the two alternates (jira `cache_salt` / LoRA-metric; binary `moe_wna16` overflow), then write the three task configs under `experiments/`.
+Next action: write the three task configs under `experiments/` (the vague-need prompt per task, the pinned commit, the four agents).
 
 ## 9. Verify-before-coding (smoke test)
 
