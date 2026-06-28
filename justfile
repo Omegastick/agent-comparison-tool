@@ -1,6 +1,6 @@
 rebuild:
-    docker rmi -f act-opencode 2>/dev/null || true
-    docker build -t act-opencode docker/
+    docker rmi -f act-agent 2>/dev/null || true
+    docker build -t act-agent docker/
 
 lint:
     uv run ruff check --fix src/ tests/

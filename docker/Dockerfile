@@ -1,22 +1,21 @@
-FROM node:20-slim
+FROM node:24-bookworm-slim
 
-# Install dependencies
+# Pi runtime deps: bash (entrypoint), git (clone/diff), ripgrep (Pi's search).
 RUN apt-get update && apt-get install -y \
-    git \
-    curl \
+    bash \
     ca-certificates \
-    jq \
+    git \
+    ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
-# Install OpenCode globally
-RUN npm install -g opencode-ai
+# Pin Pi for reproducibility; --ignore-scripts avoids running untrusted
+# postinstall hooks at build time.
+RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.80.2
 
-# Working directory for repo
 WORKDIR /workspace
 
-# Copy entrypoint scripts
 COPY entrypoint.sh /entrypoint.sh
-COPY analyze-entrypoint.sh /analyze-entrypoint.sh
-RUN chmod +x /entrypoint.sh /analyze-entrypoint.sh
+COPY extract-output.mjs /extract-output.mjs
+RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
