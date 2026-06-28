@@ -6,6 +6,7 @@ import typer
 from rich.console import Console
 
 from .config import load_config
+from .cost import Pricing, load_pricing
 from .display import ProgressDisplay
 from .runner import ExperimentRunner
 
@@ -18,7 +19,9 @@ app = typer.Typer(
 console = Console()
 
 
-def _run_experiment(config_path: Path, output_dir: Path, no_parallel: bool) -> Path:
+def _run_experiment(
+    config_path: Path, output_dir: Path, no_parallel: bool, pricing_path: Path
+) -> Path:
     """Load config, run the experiment, and return the results path.
 
     Handles config loading, printing experiment info, and error handling.
@@ -30,6 +33,19 @@ def _run_experiment(config_path: Path, output_dir: Path, no_parallel: bool) -> P
         console.print(f"[red]Error loading config:[/] {e}")
         raise typer.Exit(1)
 
+    if pricing_path.exists():
+        try:
+            pricing = load_pricing(pricing_path)
+        except Exception as e:
+            console.print(f"[red]Error loading pricing:[/] {e}")
+            raise typer.Exit(1)
+    else:
+        console.print(
+            f"[yellow]No pricing table at {pricing_path}; "
+            f"reporting token counts only.[/]"
+        )
+        pricing = Pricing()
+
     if no_parallel:
         config.settings.parallel = False
 
@@ -40,7 +56,7 @@ def _run_experiment(config_path: Path, output_dir: Path, no_parallel: bool) -> P
     console.print()
 
     display = ProgressDisplay(console)
-    runner = ExperimentRunner(config, output_dir, display)
+    runner = ExperimentRunner(config, output_dir, display, pricing)
 
     try:
         results_path = runner.run()
@@ -76,9 +92,14 @@ def run(
         "--no-parallel",
         help="Run experiments sequentially instead of in parallel",
     ),
+    pricing_path: Path = typer.Option(
+        Path("pricing.toml"),
+        "--pricing",
+        help="Path to the per-model pricing table (TOML)",
+    ),
 ) -> None:
     """Run a model-comparison experiment."""
-    _run_experiment(config_path, output_dir, no_parallel)
+    _run_experiment(config_path, output_dir, no_parallel, pricing_path)
 
 
 if __name__ == "__main__":

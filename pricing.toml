@@ -1,0 +1,36 @@
+# Per-model pricing in USD per 1,000,000 tokens, keyed by Pi model id.
+#
+# ACT computes run cost from the ground-truth token counts in each Pi trace
+# (input / output / cache-read / cache-write) multiplied by these rates, rather
+# than trusting Pi's own cost field — Pi has no pricing table for z.ai models
+# and would report $0 for GLM-5.2.
+#
+# The Claude and OpenAI rates below were derived from Pi's own per-category cost
+# accounting (cost / tokens) and match each provider's published pricing.
+# A model absent from this table is reported as "not priced" rather than $0.
+
+[models."claude-opus-4-8"]
+input = 5.00
+output = 25.00
+cache_read = 0.50
+cache_write = 6.25
+
+[models."claude-sonnet-4-6"]
+input = 3.00
+output = 15.00
+cache_read = 0.30
+cache_write = 3.75
+
+[models."gpt-5.4"]
+input = 2.50
+output = 15.00
+cache_read = 0.25
+cache_write = 0.00  # OpenAI does not bill a separate cache-write charge
+
+# GLM-5.2 (z.ai direct) — from https://docs.z.ai/guides/overview/pricing.
+# Cached-input storage (cache_write) is currently a limited-time free promotion.
+[models."glm-5.2"]
+input = 1.40
+output = 4.40
+cache_read = 0.26
+cache_write = 0.00

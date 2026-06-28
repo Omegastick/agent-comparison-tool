@@ -4,11 +4,15 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
+
+if TYPE_CHECKING:
+    from .cost import RunCost
 
 
 class _DynamicRenderable:
@@ -192,3 +196,40 @@ class ProgressDisplay:
             for run in failed:
                 error_msg = f": {run.error}" if run.error else ""
                 self.console.print(f"  - {run.run_id} ({run.status.value}){error_msg}")
+
+    def print_cost_summary(self, rows: "list[RunCost]") -> None:
+        """Print per-run token usage and cost, with per-agent and grand totals."""
+        if not rows:
+            return
+
+        self.console.print()
+        self.console.rule("[bold]Cost & Tokens")
+
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Run ID")
+        table.add_column("Model")
+        table.add_column("Total tokens", justify="right")
+        table.add_column("Cost (USD)", justify="right")
+
+        for row in sorted(rows, key=lambda r: r.run_id):
+            cost_str = f"${row.cost_usd:.4f}" if row.priced else "[yellow]not priced[/]"
+            table.add_row(
+                row.run_id,
+                row.usage.model or "-",
+                f"{row.usage.total_tokens:,}",
+                cost_str,
+            )
+
+        self.console.print(table)
+
+        priced = [r for r in rows if r.priced]
+        unpriced_models = sorted({r.usage.model for r in rows if not r.priced and r.usage.model})
+        total_cost = sum(r.cost_usd for r in priced)  # type: ignore[misc]
+        total_tokens = sum(r.usage.total_tokens for r in rows)
+
+        self.console.print(f"Total tokens: {total_tokens:,}")
+        self.console.print(f"[green]Total priced cost: ${total_cost:.4f}[/]")
+        if unpriced_models:
+            self.console.print(
+                f"[yellow]Not priced (add to pricing.toml):[/] {', '.join(unpriced_models)}"
+            )

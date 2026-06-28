@@ -11,6 +11,7 @@ import tomli_w
 
 from .config import ComparisonConfig
 from .container import ContainerConfig, ContainerManager, ContainerResult, WorkspaceManager
+from .cost import Pricing, RunCost, summarize_run, write_summary
 from .display import ProgressDisplay, RunStatus
 
 
@@ -24,11 +25,14 @@ class ExperimentRunner:
         config: ComparisonConfig,
         output_base: Path,
         display: ProgressDisplay,
+        pricing: Pricing | None = None,
     ) -> None:
         self.config = config
         self.output_base = output_base
         self.display = display
+        self.pricing = pricing or Pricing()
         self.container_manager = ContainerManager()
+        self.cost_rows: list[RunCost] = []
 
     def run(self) -> Path:
         """Run the experiment and return the results path."""
@@ -58,8 +62,10 @@ class ExperimentRunner:
                 self._run_sequential(run_configs, results)
         finally:
             self._collect_results(results, results_path)
+            self._summarize_costs(results, results_path)
             self.display.stop()
             self.display.print_summary()
+            self.display.print_cost_summary(self.cost_rows)
             self.container_manager.cleanup()
             workspace_manager.cleanup()
             if temp_dir.exists():
@@ -230,6 +236,23 @@ class ExperimentRunner:
                 src = workspace / artifact
                 if src.exists():
                     shutil.copy2(src, run_path / artifact)
+
+    def _summarize_costs(
+        self,
+        results: list[tuple[str, str, ContainerResult]],
+        results_path: Path,
+    ) -> None:
+        """Aggregate token usage and cost from each run's trace and write a summary."""
+        self.cost_rows = [
+            summarize_run(
+                run_id,
+                agent_id,
+                results_path / run_id / "trace.jsonl",
+                self.pricing,
+            )
+            for run_id, agent_id, _ in results
+        ]
+        write_summary(self.cost_rows, results_path)
 
     def _save_config(self, results_path: Path) -> None:
         """Save the experiment config to results."""

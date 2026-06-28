@@ -39,12 +39,12 @@ The default experiments compare four models, each pinned to a first-party provid
 | GPT-5.4 | `openai/gpt-5.4` | OpenAI direct | `OPENAI_API_KEY` |
 | GLM-5.2 | `zai/glm-5.2` | Zhipu / z.ai direct | `ZAI_API_KEY` |
 
-Provider endpoints and keys come from the experiment's `[providers]` block plus host environment. ACT generates Pi's `models.json` from this block at run time. All four models are Pi built-ins, so a provider entry only needs to carry its API key (an `$ENV_VAR` reference), with `base_url`/`api` overrides supplied only where a provider needs one (e.g. z.ai's coding-plan endpoint).
+Provider endpoints and keys come from the experiment's `[providers]` block plus host environment. ACT generates Pi's `models.json` from this block at run time. All four models are Pi built-ins, so a provider entry only needs to carry its API key (an `$ENV_VAR` reference), with `base_url`/`api` overrides supplied only where a provider needs one (e.g. z.ai's `https://api.z.ai/api/paas/v4` endpoint).
 
 ## Usage
 
 ```bash
-uv run act run experiments/vllm-jira-ticket.toml
+uv run act experiments/vllm-jira-ticket.toml
 ```
 
 Experiments are configured with TOML files; see `experiments/` for the three bundled vLLM tasks. Each experiment names a target repo + pinned commit, a task prompt, run settings, the `[providers]` block, and the list of agents.
@@ -70,6 +70,8 @@ Results are written to `results/<experiment-name>-<timestamp>/`. Each run direct
 ```
 results/vllm-binary-fix-2026-06-28-123456/
   config.toml              # copy of the experiment config
+  summary.csv              # per-run token usage + cost
+  summary.json             # same data as structured JSON
   sonnet-4.6-1/
     diff.patch             # git diff vs the pinned base commit, plus any new/untracked files
     trace.jsonl            # Pi's full NDJSON action trace (every tool call + message)
@@ -82,6 +84,10 @@ results/vllm-binary-fix-2026-06-28-123456/
 ```
 
 Run failures surface in the end-of-run summary print; there is no separate per-run status file.
+
+## Cost & token tracking
+
+Each run's `trace.jsonl` carries ground-truth token counts (input, output, cache-read, cache-write) per assistant message. ACT sums these and multiplies by `pricing.toml` — a table of USD-per-1M-token rates keyed by model id — to produce `summary.csv`/`summary.json` and a cost table in the end-of-run print. Cost is computed from these counts rather than from Pi's own cost field, which has no pricing for z.ai models. A model absent from `pricing.toml` is reported as "not priced" (its tokens are still recorded). Point `--pricing` at an alternate table if needed.
 
 ## Smoke test
 
