@@ -9,18 +9,17 @@ from pathlib import Path
 
 import tomli_w
 
-from .config import BenchmarkConfig
+from .config import ComparisonConfig
 from .container import ContainerConfig, ContainerManager, ContainerResult, WorkspaceManager
 from .display import ProgressDisplay, RunStatus
-from .metrics import collect_run_metrics, save_metrics
 
 
 class ExperimentRunner:
-    """Orchestrates parallel benchmark runs."""
+    """Orchestrates parallel comparison runs."""
 
     def __init__(
         self,
-        config: BenchmarkConfig,
+        config: ComparisonConfig,
         output_base: Path,
         display: ProgressDisplay,
     ) -> None:
@@ -216,7 +215,7 @@ class ExperimentRunner:
         workspace_manager: WorkspaceManager,
     ) -> None:
         """Collect and save results from all runs."""
-        for run_id, agent_id, result in results:
+        for run_id, _agent_id, result in results:
             run_path = results_path / run_id
             run_path.mkdir(parents=True, exist_ok=True)
 
@@ -227,17 +226,6 @@ class ExperimentRunner:
                 repo_git = run_path / "repo" / ".git"
                 if repo_git.exists():
                     shutil.rmtree(repo_git, ignore_errors=True)
-
-                shutil.rmtree(run_path / ".benchmark", ignore_errors=True)
-
-            metrics = collect_run_metrics(
-                run_id=run_id,
-                agent_id=agent_id,
-                workspace_path=result.workspace_path,
-                exit_code=result.exit_code,
-                error=result.error,
-            )
-            save_metrics(metrics, run_path / "metrics.json")
 
     def _save_config(self, results_path: Path) -> None:
         """Save the experiment config to results."""
