@@ -41,6 +41,10 @@ class SettingsConfig(BaseModel):
     runs_per_agent: int = Field(default=3, ge=1, le=10)
     parallel: bool = True
     timeout_minutes: int = Field(default=10, ge=1, le=180)
+    # Delay between launching parallel runs. Staggering (or `parallel = false`)
+    # avoids two same-provider runs sharing a rate-limit window and converting
+    # provider throttling into a spurious FAILED — preferred for article runs.
+    stagger_seconds: float = Field(default=0.0, ge=0.0)
 
 
 class ProviderConfig(BaseModel):

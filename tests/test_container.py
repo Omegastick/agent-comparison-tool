@@ -1,7 +1,14 @@
 """Tests for container module utilities."""
 
+import requests
+
 from act.config import ProviderConfig
-from act.container import _referenced_env_vars, build_models_json
+from act.container import (
+    _is_timeout_error,
+    _referenced_env_vars,
+    build_models_json,
+    referenced_api_key_vars,
+)
 
 
 def _providers() -> dict[str, ProviderConfig]:
@@ -64,3 +71,28 @@ class TestReferencedEnvVars:
     def test_ignores_literal_values(self):
         providers = {"custom": ProviderConfig(api_key="literal-secret")}
         assert _referenced_env_vars(providers) == set()
+
+
+class TestReferencedApiKeyVars:
+    def test_only_api_key_refs(self):
+        # base_url host refs are excluded; only key values are sensitive to scrub.
+        providers = {"custom": ProviderConfig(api_key="$KEY", base_url="https://$HOST/v1")}
+        assert referenced_api_key_vars(providers) == {"KEY"}
+
+    def test_collects_across_providers(self):
+        assert referenced_api_key_vars(_providers()) == {
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "ZAI_API_KEY",
+        }
+
+
+class TestIsTimeoutError:
+    def test_requests_timeout_detected(self):
+        assert _is_timeout_error(requests.exceptions.ReadTimeout("Read timed out."))
+
+    def test_message_match_detected(self):
+        assert _is_timeout_error(Exception("HTTPConnectionPool: Read timed out."))
+
+    def test_generic_error_not_timeout(self):
+        assert not _is_timeout_error(ValueError("auth failed"))

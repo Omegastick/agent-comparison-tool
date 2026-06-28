@@ -1,4 +1,5 @@
-FROM node:24-bookworm-slim
+# Pinned by digest for reproducibility; resolves to the node:24-bookworm-slim tag.
+FROM node:24-bookworm-slim@sha256:b31e7a42fdf8b8aa5f5ed477c72d694301273f1069c5a2f71d53c6482e99a2fc
 
 # Pi runtime deps: bash (entrypoint), git (clone/diff), ripgrep (Pi's search).
 RUN apt-get update && apt-get install -y \

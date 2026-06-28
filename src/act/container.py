@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import requests
 from docker.errors import ContainerError, ImageNotFound
 from docker.models.containers import Container
 
@@ -20,6 +21,18 @@ from .config import ProviderConfig
 logger = logging.getLogger(__name__)
 
 _ENV_REF_RE = re.compile(r"\$\{?(\w+)\}?")
+
+
+def _is_timeout_error(exc: BaseException) -> bool:
+    """Whether a ``container.wait`` failure is a wall-clock timeout vs a real error.
+
+    docker-py surfaces a ``wait(timeout=...)`` expiry as a requests ``Timeout``;
+    the message ("Read timed out") is matched as a fallback so detection does not
+    hard-depend on the exact exception class the SDK raises.
+    """
+    if isinstance(exc, requests.exceptions.Timeout):
+        return True
+    return "timed out" in str(exc).lower()
 
 
 def build_models_json(providers: dict[str, ProviderConfig]) -> dict[str, Any]:
@@ -52,6 +65,19 @@ def _referenced_env_vars(providers: dict[str, ProviderConfig]) -> set[str]:
     return names
 
 
+def referenced_api_key_vars(providers: dict[str, ProviderConfig]) -> set[str]:
+    """Host env var names referenced specifically by provider ``api_key`` fields.
+
+    Distinct from :func:`_referenced_env_vars` (which also covers ``base_url``):
+    only the key values are sensitive and must be scrubbed from artifacts.
+    """
+    names: set[str] = set()
+    for provider in providers.values():
+        if provider.api_key:
+            names.update(_ENV_REF_RE.findall(provider.api_key))
+    return names
+
+
 @dataclass
 class ContainerConfig:
     """Configuration for a single container run."""
@@ -77,6 +103,7 @@ class ContainerResult:
     logs: str
     workspace_path: Path
     error: str | None = None
+    timed_out: bool = False
 
 
 class ContainerManager:
@@ -84,6 +111,10 @@ class ContainerManager:
 
     IMAGE_NAME = "act-agent"
     DOCKER_DIR = Path(__file__).parent.parent.parent / "docker"
+    # Grace given to the entrypoint's termination trap to flush diff.patch and
+    # output.txt to the mounted workspace when a run is stopped (e.g. on timeout)
+    # before the container is killed.
+    STOP_GRACE_SECONDS = 30
 
     def __init__(self) -> None:
         self.client = docker.from_env()
@@ -128,9 +159,18 @@ class ContainerManager:
         if config.extra_args:
             env["PI_EXTRA_ARGS"] = " ".join(config.extra_args)
 
+        # Least privilege: a run authenticates only against the provider segment
+        # of its own model ref, so forward (and write into models.json) just that
+        # provider's key rather than every comparison provider's. Pi only needs
+        # the provider backing the model it actually runs.
+        provider_name = config.pi_model.split("/", 1)[0]
+        run_providers = config.providers
+        if provider_name in config.providers:
+            run_providers = {provider_name: config.providers[provider_name]}
+
         # Pi reads `$VAR` references in models.json from the process env, so the
         # referenced host keys have to be forwarded into the container.
-        for var in _referenced_env_vars(config.providers):
+        for var in _referenced_env_vars(run_providers):
             value = os.environ.get(var)
             if value is not None:
                 env[var] = value
@@ -138,7 +178,7 @@ class ContainerManager:
         home_dir = tempfile.mkdtemp(prefix="act-home-")
         models_dir = tempfile.mkdtemp(prefix="act-models-")
         models_path = Path(models_dir) / "models.json"
-        models_path.write_text(json.dumps(build_models_json(config.providers), indent=2))
+        models_path.write_text(json.dumps(build_models_json(run_providers), indent=2))
 
         volumes = {
             str(config.workspace_path): {"bind": "/workspace", "mode": "rw"},
@@ -156,6 +196,9 @@ class ContainerManager:
                 volumes=volumes,
                 detach=True,
                 mem_limit="4g",
+                pids_limit=512,
+                cap_drop=["ALL"],
+                security_opt=["no-new-privileges"],
                 user=f"{os.getuid()}:{os.getgid()}",
             )
             self._containers[config.run_id] = container
@@ -189,11 +232,22 @@ class ContainerManager:
                 logs="",
                 workspace_path=config.workspace_path,
                 error=str(e),
+                timed_out=_is_timeout_error(e),
             )
         finally:
             if config.run_id in self._containers:
+                container = self._containers[config.run_id]
+                # Graceful stop (SIGTERM, then kill after the grace period) lets
+                # the entrypoint's termination trap flush diff.patch/output.txt to
+                # the mounted workspace before the container dies; a container that
+                # already exited (the normal path) stops instantly. Without this a
+                # timed-out run would be force-killed before its artifacts exist.
                 try:
-                    self._containers[config.run_id].remove(force=True)
+                    container.stop(timeout=self.STOP_GRACE_SECONDS)
+                except Exception as e:
+                    logger.warning("Failed to stop container %s: %s", config.run_id, e)
+                try:
+                    container.remove(force=True)
                 except Exception as e:
                     logger.warning("Failed to remove container %s: %s", config.run_id, e)
                 del self._containers[config.run_id]

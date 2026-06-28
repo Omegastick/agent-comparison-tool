@@ -59,7 +59,9 @@ class ExperimentState:
     @property
     def completed_runs(self) -> int:
         return sum(
-            1 for r in self.runs.values() if r.status in (RunStatus.COMPLETED, RunStatus.FAILED)
+            1
+            for r in self.runs.values()
+            if r.status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.TIMEOUT)
         )
 
     @property
@@ -182,20 +184,28 @@ class ProgressDisplay:
         self.console.rule("[bold]Experiment Summary")
 
         successful = [r for r in self.state.runs.values() if r.status == RunStatus.COMPLETED]
-        failed = [
-            r for r in self.state.runs.values() if r.status in (RunStatus.FAILED, RunStatus.TIMEOUT)
-        ]
+        failed = [r for r in self.state.runs.values() if r.status == RunStatus.FAILED]
+        # A timed-out run is force-stopped mid-flight, so its output is truncated
+        # rather than wrong; surface it as its own non-comparable outcome.
+        timed_out = [r for r in self.state.runs.values() if r.status == RunStatus.TIMEOUT]
 
         self.console.print(f"Total runs: {self.state.total_runs}")
         self.console.print(f"[green]Successful: {len(successful)}[/]")
         self.console.print(f"[red]Failed: {len(failed)}[/]")
+        self.console.print(f"[yellow]Timed out: {len(timed_out)}[/]")
 
         if failed:
             self.console.print()
             self.console.print("[red]Failed runs:[/]")
             for run in failed:
                 error_msg = f": {run.error}" if run.error else ""
-                self.console.print(f"  - {run.run_id} ({run.status.value}){error_msg}")
+                self.console.print(f"  - {run.run_id}{error_msg}")
+
+        if timed_out:
+            self.console.print()
+            self.console.print("[yellow]Timed-out runs (truncated, not comparable):[/]")
+            for run in timed_out:
+                self.console.print(f"  - {run.run_id}")
 
     def print_cost_summary(self, rows: "list[RunCost]") -> None:
         """Print per-run token usage and cost, with per-agent and grand totals."""
