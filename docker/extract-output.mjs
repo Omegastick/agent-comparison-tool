@@ -5,7 +5,7 @@
 // (text / thinking / toolCall / ...). Two gotchas drive this logic:
 //
 //   1. message_update events are CUMULATIVE snapshots of the in-progress
-//      message, NOT incremental deltas — each successive update for the same
+//      message, NOT incremental deltas. Each successive update for the same
 //      message repeats the full text so far. They must be deduplicated (keep
 //      only the latest snapshot per message), never concatenated, or the output
 //      balloons with megabytes of duplicated text.
@@ -96,7 +96,7 @@ const output = [...turns.values()]
 
 if (!output.trim()) {
   process.stderr.write(
-    `extract-output: no assistant text found in ${tracePath} — ` +
+    `extract-output: no assistant text found in ${tracePath}: ` +
       `the full trace is preserved in trace.jsonl\n`,
   );
   process.exit(2);

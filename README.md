@@ -10,7 +10,7 @@ For an experiment that names N models and one task, ACT:
 
 - Clones the target repository at a pinned commit into an isolated container per run.
 - Runs Pi headless with the configured model against the task prompt.
-- Collects three raw artifacts per run — nothing else (see [Output layout](#output-layout)).
+- Collects three raw artifacts per run and nothing else (see [Output layout](#output-layout)).
 
 Each model is pinned to a specific provider and endpoint, so there is no opaque routing: a model always runs against the provider you configured.
 
@@ -29,7 +29,7 @@ uv sync
   - `ZAI_API_KEY`
 
 > [!WARNING]
-> **Collected artifacts may contain your provider API keys.** Keys are forwarded into each container as plaintext environment variables, and Pi runs tools unconfined, so a model that runs `env` / `echo $ANTHROPIC_API_KEY` could write a key verbatim into its `trace.jsonl`, `output.txt`, or `diff.patch`. As a safety net, ACT scrubs the exact value of every forwarded key out of these text artifacts when it collects them (each key value is replaced with `***REDACTED***`). This is a best-effort substring scrub of *known* key values only — it cannot catch a key the model has transformed (base64, split across lines, etc.). **Always review the artifacts of any run before publishing it.** See [Security & publishing](#security--publishing).
+> **Collected artifacts may contain your provider API keys.** Keys are forwarded into each container as plaintext environment variables, and Pi runs tools unconfined, so a model that runs `env` / `echo $ANTHROPIC_API_KEY` could write a key verbatim into its `trace.jsonl`, `output.txt`, or `diff.patch`. As a safety net, ACT scrubs the exact value of every forwarded key out of these text artifacts when it collects them (each key value is replaced with `***REDACTED***`). This is a best-effort substring scrub of *known* key values only; it cannot catch a key the model has transformed (base64, split across lines, etc.). **Always review the artifacts of any run before publishing it.** See [Security & publishing](#security--publishing).
 
 ## Models and provider pinning
 
@@ -54,9 +54,9 @@ Experiments are configured with TOML files; see `experiments/` for the three bun
 
 Each agent requires:
 
-- `id` — unique identifier for the run directories.
-- `model` — a Pi model ref of the form `<provider>/<id>`; the provider segment must have a matching `[providers]` entry.
-- `extra_args` — extra CLI arguments passed through to Pi (optional).
+- `id`: unique identifier for the run directories.
+- `model`: a Pi model ref of the form `<provider>/<id>`; the provider segment must have a matching `[providers]` entry.
+- `extra_args`: extra CLI arguments passed through to Pi (optional).
 
 ## Docker image
 
@@ -68,7 +68,7 @@ just rebuild
 
 ## Output layout
 
-Results are written to `results/<experiment-name>-<timestamp>/`. Each run directory holds only the raw artifacts — the full tree is never copied, since the target commit is pinned and the diff is the complete record of what the model changed:
+Results are written to `results/<experiment-name>-<timestamp>/`. Each run directory holds only the raw artifacts. The full tree is never copied, since the target commit is pinned and the diff is the complete record of what the model changed:
 
 ```
 results/vllm-binary-fix-2026-06-28-123456/
@@ -88,13 +88,13 @@ results/vllm-binary-fix-2026-06-28-123456/
   ...
 ```
 
-`diff.patch` is built with `git add -Af`, so it captures everything the model wrote against the pinned base — including files the target repo's own `.gitignore` would normally drop — making it a complete record rather than only the tracked changes.
+`diff.patch` is built with `git add -Af`, so it captures everything the model wrote against the pinned base (including files the target repo's own `.gitignore` would normally drop), making it a complete record rather than only the tracked changes.
 
-`runs.json` is the per-run provenance you'll want when returning to a result later. For each run it records the final `status` (`completed` / `failed` / `timeout`), `exit_code`, `error`, `duration_seconds`, and a `rate_limited` flag (set when the error/logs look like provider throttling). It also records the `model` actually served — read back from the trace so a floating alias (e.g. `claude-opus-4-8`) is resolved to the concrete id the provider returned — alongside `model_source` (`trace` when resolved from the run, `config` when only the configured ref was available) and the `run_date`. Run failures also surface in the end-of-run summary print.
+`runs.json` is the per-run provenance you'll want when returning to a result later. For each run it records the final `status` (`completed` / `failed` / `timeout`), `exit_code`, `error`, `duration_seconds`, and a `rate_limited` flag (set when the error/logs look like provider throttling). It also records the `model` actually served (read back from the trace, so a floating alias such as `claude-opus-4-8` resolves to the concrete id the provider returned), plus `model_source` (`trace` when resolved from the run, `config` when only the configured ref was available) and the `run_date`. Run failures also surface in the end-of-run summary print.
 
 ## Cost & token tracking
 
-Each run's `trace.jsonl` carries ground-truth token counts (input, output, cache-read, cache-write) per assistant message. ACT sums these and multiplies by `pricing.toml` — a table of USD-per-1M-token rates keyed by model id — to produce `summary.csv`/`summary.json` and a cost table in the end-of-run print. Cost is computed from these counts rather than from Pi's own cost field, which has no pricing for z.ai models. A model absent from `pricing.toml` is reported as "not priced" (its tokens are still recorded). Point `--pricing` at an alternate table if needed.
+Each run's `trace.jsonl` carries ground-truth token counts (input, output, cache-read, cache-write) per assistant message. ACT sums these and multiplies by `pricing.toml` (a table of USD-per-1M-token rates keyed by model id) to produce `summary.csv`/`summary.json` and a cost table in the end-of-run print. Cost is computed from these counts rather than from Pi's own cost field, which has no pricing for z.ai models. A model absent from `pricing.toml` is reported as "not priced" (its tokens are still recorded). Point `--pricing` at an alternate table if needed.
 
 ## Methodology & caveats
 
@@ -112,7 +112,7 @@ ACT is a comparison tool, not a benchmark, and the way it runs models has conseq
 
 Before publishing any run (committing it, pasting a trace into an article, sharing a diff):
 
-1. **Confirm the scrub ran and review the artifacts.** ACT redacts the value of every forwarded provider key from `trace.jsonl`, `output.txt`, and `diff.patch` on collection (replacing it with `***REDACTED***`), but this only catches *verbatim* key values. Read the artifacts you intend to publish and check for anything else sensitive — credentials the model fetched, host paths, etc.
+1. **Confirm the scrub ran and review the artifacts.** ACT redacts the value of every forwarded provider key from `trace.jsonl`, `output.txt`, and `diff.patch` on collection (replacing it with `***REDACTED***`), but this only catches *verbatim* key values. Read the artifacts you intend to publish and check for anything else sensitive: credentials the model fetched, host paths, etc.
 2. **Then, if you want to publish a curated run**, override the ignore rule for that specific path so the commit is intentional, e.g.:
 
    ```bash
@@ -120,8 +120,8 @@ Before publishing any run (committing it, pasting a trace into an article, shari
    git commit -m "Add evidence for the article: vLLM binary-fix run"
    ```
 
-   Scrubbing and manual review (step 1) are preconditions for this — never force-add a run you have not reviewed. Prefer committing a single curated run (or a separate `article-evidence/` directory) rather than un-ignoring `results/` wholesale.
+   Scrubbing and manual review (step 1) are preconditions for this. Never force-add a run you have not reviewed. Prefer committing a single curated run (or a separate `article-evidence/` directory) rather than un-ignoring `results/` wholesale.
 
 ## Smoke test
 
-Pi's provider transports and endpoints (Anthropic host-root base URL, OpenAI Responses, the z.ai endpoint/key plan) are the only things that cannot be verified from source. Before relying on a fresh setup, run a small experiment end-to-end with all four providers configured — this requires `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `ZAI_API_KEY` to be exported on the host — and confirm each run produces a parseable `trace.jsonl`.
+Pi's provider transports and endpoints (Anthropic host-root base URL, OpenAI Responses, the z.ai endpoint/key plan) are the only things that cannot be verified from source. Before relying on a fresh setup, run a small experiment end-to-end with all four providers configured (this requires `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `ZAI_API_KEY` to be exported on the host), and confirm each run produces a parseable `trace.jsonl`.

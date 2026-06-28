@@ -2,7 +2,7 @@
 
 Cost is computed from ground-truth token counts in each ``trace.jsonl`` (the
 provider returns usage per assistant message) multiplied by a configurable
-pricing table, rather than trusting Pi's own ``cost`` field — Pi carries no
+pricing table, rather than trusting Pi's own ``cost`` field; Pi carries no
 pricing for z.ai models and reports $0 for them.
 """
 
