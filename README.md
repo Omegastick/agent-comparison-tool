@@ -1,6 +1,18 @@
 # ACT (Agent Comparison Tool)
 
-A tool for comparing AI coding agents using OpenCode. Runs multiple agents in isolated Docker containers, collects metrics, and generates AI analysis reports.
+A tool for comparing AI coding models on the same task. ACT runs several provider-pinned models against one task, each in its own isolated Docker container running the [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) coding agent, and collects the raw output of each run: the code change it made, its full action trace, and its final message.
+
+ACT is deliberately not a benchmark. There is no grading, no scoring, no ranking, and no "winner". It exists to surface raw model behaviour on a fixed task so the differences can be read by hand afterwards.
+
+## What it does
+
+For an experiment that names N models and one task, ACT:
+
+- Clones the target repository at a pinned commit into an isolated container per run.
+- Runs Pi headless with the configured model against the task prompt.
+- Collects three raw artifacts per run — nothing else (see [Output layout](#output-layout)).
+
+Each model is pinned to a specific provider and endpoint, so there is no opaque routing: a model always runs against the provider you configured.
 
 ## Installation
 
@@ -10,68 +22,67 @@ uv sync
 
 ## Prerequisites
 
-- Docker
-- OpenCode CLI with authenticated providers (`opencode auth login`, then `opencode auth list` to verify)
+- Docker.
+- API keys for the providers your experiment uses, exported into the host environment (ACT forwards the referenced keys into the container; they are never written into the TOML). For the default four-model set:
+  - `ANTHROPIC_API_KEY`
+  - `OPENAI_API_KEY`
+  - `ZAI_API_KEY`
+
+## Models and provider pinning
+
+The default experiments compare four models, each pinned to a first-party provider:
+
+| Model | Pi model ref | Provider | Key env |
+|---|---|---|---|
+| Claude Sonnet 4.6 | `anthropic/claude-sonnet-4-6` | Anthropic direct | `ANTHROPIC_API_KEY` |
+| Claude Opus 4.8 | `anthropic/claude-opus-4-8` | Anthropic direct | `ANTHROPIC_API_KEY` |
+| GPT-5.4 | `openai/gpt-5.4` | OpenAI direct | `OPENAI_API_KEY` |
+| GLM-5.2 | `zai/glm-5.2` | Zhipu / z.ai direct | `ZAI_API_KEY` |
+
+Provider endpoints and keys come from the experiment's `[providers]` block plus host environment. ACT generates Pi's `models.json` from this block at run time. All four models are Pi built-ins, so a provider entry only needs to carry its API key (an `$ENV_VAR` reference), with `base_url`/`api` overrides supplied only where a provider needs one (e.g. z.ai's coding-plan endpoint).
 
 ## Usage
 
-### Run an experiment and analyze
-
 ```bash
-uv run act run-and-analyze experiments/basic-greenfield-plan-creation.toml
+uv run act run experiments/vllm-jira-ticket.toml
 ```
 
-### Run an experiment only
-
-```bash
-uv run act run experiments/basic-greenfield-plan-creation.toml
-```
-
-### Analyze existing results
-
-```bash
-uv run act analyze results/basic-greenfield-plan-creation-2026-02-11-123456/
-```
-
-Requires an `[analysis]` section in the experiment config.
-
-### List past experiments
-
-```bash
-uv run act list
-```
-
-## Configuration
-
-Experiments are configured using TOML files. See `experiments/` for examples.
+Experiments are configured with TOML files; see `experiments/` for the three bundled vLLM tasks. Each experiment names a target repo + pinned commit, a task prompt, run settings, the `[providers]` block, and the list of agents.
 
 Each agent requires:
-- `id` - Unique identifier for the agent
-- `model` - Model in `provider/model-id` format (optional, uses default if not specified)
-- `extra_args` - Additional CLI arguments for opencode (optional)
 
-## Docker Image
+- `id` — unique identifier for the run directories.
+- `model` — a Pi model ref of the form `<provider>/<id>`; the provider segment must have a matching `[providers]` entry.
+- `extra_args` — extra CLI arguments passed through to Pi (optional).
 
-The tool runs agents in Docker containers. Rebuild after code changes:
+## Docker image
+
+The tool runs each model in the `act-agent` Docker image. Rebuild it after changing anything under `docker/`:
 
 ```bash
 just rebuild
 ```
 
-## Output Structure
+## Output layout
 
-Results are saved to `results/<experiment-name>-<timestamp>/`:
+Results are written to `results/<experiment-name>-<timestamp>/`. Each run directory holds only the raw artifacts — the full tree is never copied, since the target commit is pinned and the diff is the complete record of what the model changed:
 
 ```
-results/basic-greenfield-plan-creation-2026-02-11-123456/
-├── config.toml              # Copy of experiment config
-├── analysis.md              # AI-generated analysis report
-├── stats.json               # AI-generated statistics
-├── sonnet-4.5-1/            # Run 1 for sonnet agent
-│   ├── metrics.json         # Quantitative metrics
-│   ├── run.log              # Agent execution log
-│   └── repo/                # Repository state after run
-├── sonnet-4.5-2/            # Run 2 for sonnet agent
-├── gpt-5-1/                 # Run 1 for gpt-5 agent
-└── gpt-5-2/                 # Run 2 for gpt-5 agent
+results/vllm-binary-fix-2026-06-28-123456/
+  config.toml              # copy of the experiment config
+  sonnet-4.6-1/
+    diff.patch             # git diff vs the pinned base commit, plus any new/untracked files
+    trace.jsonl            # Pi's full NDJSON action trace (every tool call + message)
+    output.txt             # the model's final assistant message
+  sonnet-4.6-2/
+  opus-4.8-1/
+  gpt-5.4-1/
+  glm-5.2-1/
+  ...
 ```
+
+Run failures surface in the end-of-run summary print; there is no separate per-run status file.
+
+## Smoke test
+
+Pi's provider transports and endpoints (Anthropic host-root base URL, OpenAI Responses, the z.ai endpoint/key plan) are the only things that cannot be verified from source. Before relying on a fresh setup, run a small experiment end-to-end with all four providers configured — this requires `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `ZAI_API_KEY` to be exported on the host — and confirm each run produces a parseable `trace.jsonl`.

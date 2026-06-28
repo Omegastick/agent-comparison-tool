@@ -1,0 +1,49 @@
+[experiment]
+name = "vllm-jira-ticket"
+description = "Judgment task: decompose a vague request-prioritization complaint into well-scoped engineering tickets."
+
+[target]
+repo = "https://github.com/vllm-project/vllm"
+commit = "9036c89ee410b30913ca8b7d362a7d0805583b51"
+
+[prompt]
+text = """
+You are working in the vLLM codebase.
+
+A product stakeholder has raised the following need:
+
+"We run this inference server in production, and we tag some of our requests as high-priority because they back latency-sensitive, user-facing traffic. Our expectation is that when the server is busy, those high-priority requests get served ahead of the rest. In practice that's not what we see. Under heavy load, our high-priority requests still end up waiting behind ordinary low-priority work that's already in flight — it's as if the priority tag stops mattering the moment the box is fully saturated. That's exactly the moment it matters most to us, and it's hurting the experience for the traffic we care about. We need this to actually work."
+
+Investigate how request prioritization behaves in this codebase, especially under load, and figure out what is really going on relative to the stakeholder's expectation. Then break the work down into a set of well-scoped engineering tickets that the team could pick up. Write the tickets out.
+"""
+
+[settings]
+runs_per_agent = 3
+parallel = true
+timeout_minutes = 30
+
+[providers.anthropic]
+api_key = "$ANTHROPIC_API_KEY"
+
+[providers.openai]
+api_key = "$OPENAI_API_KEY"
+
+[providers.zai]
+base_url = "https://api.z.ai/api/coding/paas/v4"
+api_key = "$ZAI_API_KEY"
+
+[[agents]]
+id = "sonnet-4.6"
+model = "anthropic/claude-sonnet-4-6"
+
+[[agents]]
+id = "opus-4.8"
+model = "anthropic/claude-opus-4-8"
+
+[[agents]]
+id = "gpt-5.4"
+model = "openai/gpt-5.4"
+
+[[agents]]
+id = "glm-5.2"
+model = "zai/glm-5.2"
