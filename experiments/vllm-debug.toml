@@ -1,0 +1,52 @@
+[experiment]
+name = "vllm-debug"
+description = "Debugging task: from a symptom-only bug report, reproduce, locate, fix, and verify a non-finite-number bug in tool-call argument coercion (vLLM PR #43984; pinned to the parent commit so the bug is present)."
+
+[target]
+repo = "https://github.com/vllm-project/vllm"
+commit = "bf2a3930341695e9b2dad73f2934d5a6d8f564dc"
+
+[prompt]
+text = """
+You are working in the vLLM codebase. You have a working CPU Python environment where vLLM is importable, and you can run code and tests.
+
+A user has filed a bug report:
+
+"We serve an OpenAI-compatible endpoint with tool calling enabled. When the model emits a tool call whose argument is a non-finite number (a literal like 1e999, inf, -inf, Infinity, or NaN, or a list or object containing one, such as [1e999] or {"x": Infinity}), the request fails. Sometimes the server returns HTTP 500 with an uncaught error; other times it returns a tool call whose arguments field is not valid JSON (it contains bare Infinity or NaN tokens that strict JSON parsers reject). The same request with ordinary finite numbers always works."
+
+Reproduce the problem, find the root cause, and fix it. Verify your fix. Explain what was going wrong and how you found it.
+"""
+
+[settings]
+runs_per_agent = 3
+parallel = true
+timeout_minutes = 30
+# Purpose-built image with vLLM pre-installed CPU-only at the pinned commit, so
+# the agent can reproduce and verify the fix (see docker/Dockerfile.debug).
+image = "act-agent-debug"
+
+[providers.anthropic]
+api_key = "$ANTHROPIC_API_KEY"
+
+[providers.openai]
+api_key = "$OPENAI_API_KEY"
+
+[providers.zai]
+base_url = "https://api.z.ai/api/paas/v4"
+api_key = "$ZAI_API_KEY"
+
+[[agents]]
+id = "sonnet-4.6"
+model = "anthropic/claude-sonnet-4-6"
+
+[[agents]]
+id = "opus-4.8"
+model = "anthropic/claude-opus-4-8"
+
+[[agents]]
+id = "gpt-5.4"
+model = "openai/gpt-5.4"
+
+[[agents]]
+id = "glm-5.2"
+model = "zai/glm-5.2"

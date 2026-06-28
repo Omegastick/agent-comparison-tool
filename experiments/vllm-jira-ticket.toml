@@ -14,7 +14,16 @@ A product stakeholder has raised the following need:
 
 "We run this inference server in production, and we tag some of our requests as high-priority because they back latency-sensitive, user-facing traffic. Our expectation is that when the server is busy, those high-priority requests get served ahead of the rest. In practice that's not what we see. Under heavy load, our high-priority requests still end up waiting behind ordinary low-priority work that's already in flight — it's as if the priority tag stops mattering the moment the box is fully saturated. That's exactly the moment it matters most to us, and it's hurting the experience for the traffic we care about. We need this to actually work."
 
-Investigate how request prioritization behaves in this codebase, especially under load, and figure out what is really going on relative to the stakeholder's expectation. Then break the work down into a set of well-scoped engineering tickets that the team could pick up. Write the tickets out.
+Investigate how request prioritization behaves in this codebase, especially under load, and figure out what is really going on relative to the stakeholder's expectation. Then break the work down into a set of engineering tickets the team can pick up.
+
+Record the tickets the way the team does: as Markdown, in a file called TICKETS.md in the repository root, one ticket per "## " section. Use the team's standard ticket template for each:
+
+- Title
+- Summary: the problem and any context a teammate needs
+- Proposed approach: what to change, at a high level
+- Acceptance criteria: how the team will know it is done
+- Affected areas: the files, modules, or components likely involved
+- Priority and dependencies: relative priority, and what it blocks or depends on
 """
 
 [settings]

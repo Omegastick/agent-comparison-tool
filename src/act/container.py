@@ -92,6 +92,7 @@ class ContainerConfig:
     extra_args: list[str]
     timeout_seconds: int
     workspace_path: Path
+    image: str = "act-agent"
 
 
 @dataclass
@@ -110,6 +111,12 @@ class ContainerManager:
     """Manages Docker containers for comparison runs."""
 
     IMAGE_NAME = "act-agent"
+    # Each selectable image maps to its Dockerfile under DOCKER_DIR. The default
+    # minimal image clones at run time; the debug image ships vLLM pre-installed.
+    IMAGE_DOCKERFILES = {
+        "act-agent": "Dockerfile",
+        "act-agent-debug": "Dockerfile.debug",
+    }
     DOCKER_DIR = Path(__file__).parent.parent.parent / "docker"
     # Grace given to the entrypoint's termination trap to flush diff.patch and
     # output.txt to the mounted workspace when a run is stopped (e.g. on timeout)
@@ -118,36 +125,41 @@ class ContainerManager:
 
     def __init__(self) -> None:
         self.client = docker.from_env()
-        self._image_built = False
+        self._built_images: set[str] = set()
         self._containers: dict[str, Container] = {}
 
-    def ensure_image(self) -> None:
-        """Build the Docker image if not already built."""
-        if self._image_built:
+    def ensure_image(self, image: str = IMAGE_NAME) -> None:
+        """Build the named Docker image if it is not already present."""
+        if image in self._built_images:
             return
 
         try:
-            self.client.images.get(self.IMAGE_NAME)
-            self._image_built = True
+            self.client.images.get(image)
+            self._built_images.add(image)
             return
         except ImageNotFound:
             pass
 
         self.client.images.build(
             path=str(self.DOCKER_DIR),
-            tag=self.IMAGE_NAME,
+            dockerfile=self.IMAGE_DOCKERFILES.get(image, "Dockerfile"),
+            tag=image,
             rm=True,
         )
-        self._image_built = True
+        self._built_images.add(image)
 
     def run(self, config: ContainerConfig) -> ContainerResult:
         """Run Pi headless in a container with the given configuration."""
-        self.ensure_image()
+        self.ensure_image(config.image)
 
         env = {
             "RUN_ID": config.run_id,
             "REPO_URL": config.repo_url,
             "HOME": "/home/agent",
+            # The run's uid has no /etc/passwd entry under non-root hardening;
+            # libraries that resolve the current username (e.g. torch via
+            # getpass.getuser()) need USER set to avoid a KeyError on import.
+            "USER": "agent",
             "PI_MODEL": config.pi_model,
         }
         if config.repo_commit:
@@ -191,7 +203,7 @@ class ContainerManager:
 
         try:
             container = self.client.containers.run(
-                self.IMAGE_NAME,
+                config.image,
                 environment=env,
                 volumes=volumes,
                 detach=True,

@@ -12,7 +12,16 @@ You are working in the vLLM codebase.
 
 Our users want to understand the latency breakdown of their own individual requests to this inference server: how long their request spent queued before it started, how long prefill took, how long decode took, and the inter-token latency they experienced. The server already measures timing like this internally, but today it is only exposed in aggregate, through Prometheus metrics and OTel traces. That is no help to an end caller who simply wants the numbers for the one request they just made.
 
-Design the API for exposing per-request timing back to the caller. Work out what timings can and should be surfaced, how a caller would opt in, and how this fits requests served both with and without streaming. How the timing is actually delivered back to the caller is an open design question with no settled answer — decide on an approach and justify it. Write up your design.
+Design the API for exposing per-request timing back to the caller. Work out what timings can and should be surfaced, how a caller would opt in, and how this fits requests served both with and without streaming. How the timing is actually delivered back to the caller is an open design question with no settled answer: decide on an approach and justify it.
+
+Record the design the way the team does: as a Markdown design doc at docs/design/per-request-timing.md. Use the team's standard design-doc template:
+
+- Title and summary
+- Background: the problem and the current behavior
+- Proposed design: the API, the timings surfaced, and how a caller opts in
+- Streaming and non-streaming: how it works for each
+- Alternatives considered: the other delivery mechanisms you weighed, and why you chose this one
+- Open questions: anything left unresolved
 """
 
 [settings]

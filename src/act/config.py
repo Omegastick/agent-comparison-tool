@@ -43,8 +43,13 @@ class SettingsConfig(BaseModel):
     timeout_minutes: int = Field(default=10, ge=1, le=180)
     # Delay between launching parallel runs. Staggering (or `parallel = false`)
     # avoids two same-provider runs sharing a rate-limit window and converting
-    # provider throttling into a spurious FAILED — preferred for article runs.
+    # provider throttling into a spurious FAILED; preferred for article runs.
     stagger_seconds: float = Field(default=0.0, ge=0.0)
+    # Docker image to run each agent in. The default minimal image clones the
+    # target repo at run time; a task needing a prepared environment (e.g. the
+    # debugging task, which ships vLLM pre-installed CPU-only at its pinned
+    # commit) selects a purpose-built image instead.
+    image: str = "act-agent"
 
 
 class ProviderConfig(BaseModel):

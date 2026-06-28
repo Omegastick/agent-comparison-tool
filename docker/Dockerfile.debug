@@ -1,0 +1,50 @@
+# Debug-task image: the minimal Pi runtime PLUS vLLM pre-installed CPU-only at
+# the debug task's pinned parent commit, so the agent can import vLLM, reproduce
+# the bug, fix it, and verify, entirely on CPU. The bug under test is pure
+# Python, so VLLM_TARGET_DEVICE=empty (no compiled backend, no CUDA stack) is
+# enough and keeps the image lean.
+FROM python:3.12-slim-bookworm
+
+# Node 24 for Pi, plus the Pi/runtime deps from the base image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash ca-certificates curl git ripgrep \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.80.2
+
+# Tells the entrypoint to use this prepared checkout instead of cloning.
+ENV ACT_REPO_DIR=/opt/vllm
+# Don't write .pyc at run time, so the agent's diff isn't polluted by __pycache__.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Shallow-fetch the pinned parent commit (bug present), then install CPU torch
+# first so the CUDA stack is never pulled, then vLLM with no compiled backend.
+RUN git init "$ACT_REPO_DIR" \
+    && cd "$ACT_REPO_DIR" \
+    && git remote add origin https://github.com/vllm-project/vllm.git \
+    && git fetch --depth 1 origin bf2a3930341695e9b2dad73f2934d5a6d8f564dc \
+    && git checkout -q FETCH_HEAD
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN cd "$ACT_REPO_DIR" \
+    && VLLM_TARGET_DEVICE=empty pip install --no-cache-dir -e . \
+       --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Commit the editable-install artifacts so the run-time diff is only the agent's
+# changes. -Af also folds in install outputs the repo's .gitignore would drop
+# (vllm.egg-info, _version.py), which would otherwise resurface in the run diff.
+RUN cd "$ACT_REPO_DIR" \
+    && git config user.email build@act.invalid \
+    && git config user.name "act build" \
+    && git add -Af \
+    && git commit -q -m "vLLM editable install artifacts" || true
+RUN chmod -R 0777 "$ACT_REPO_DIR"
+
+WORKDIR /workspace
+
+COPY entrypoint.sh /entrypoint.sh
+COPY extract-output.mjs /extract-output.mjs
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

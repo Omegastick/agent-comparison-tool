@@ -167,6 +167,7 @@ class ExperimentRunner:
                     extra_args=agent.extra_args,
                     timeout_seconds=timeout,
                     workspace_path=workspace,
+                    image=self.config.settings.image,
                 )
                 configs.append((run_id, agent.id, run_num, container_config))
 

@@ -36,6 +36,24 @@ FINALIZED=""
 log() { echo "[act] $*" >&2; }
 
 setup_repo() {
+    # A prepared image (e.g. the debug image) ships the target repo already
+    # checked out at the pinned commit, with its environment installed. Use it
+    # in place and skip cloning. It is built root-owned but we run as a non-root
+    # host user, so mark it a safe git directory before touching .git.
+    if [ -n "${ACT_REPO_DIR:-}" ] && [ -d "${ACT_REPO_DIR}/.git" ]; then
+        log "Using prepared repo at ${ACT_REPO_DIR} (skipping clone)"
+        REPO_DIR="$ACT_REPO_DIR"
+        cd "$REPO_DIR" || exit 1
+        git config --global --add safe.directory "$REPO_DIR"
+        # The image makes the tree world-writable for the non-root runtime user,
+        # which flips every file's mode bit; ignore mode changes so the diff is
+        # only the agent's content edits.
+        git config core.fileMode false
+        git config user.name "ACT Agent"
+        git config user.email "act-agent@example.invalid"
+        return
+    fi
+
     log "Cloning ${REPO_URL} into ${REPO_DIR}"
     git init -q "$REPO_DIR"
     cd "$REPO_DIR" || exit 1
