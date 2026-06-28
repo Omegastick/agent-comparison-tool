@@ -58,6 +58,12 @@ def test_valid_config_loads(tmp_path: Path):
     assert config.providers["zai"].base_url == "https://api.z.ai/api/coding/paas/v4"
 
 
+def test_stagger_seconds_defaults_to_zero(tmp_path: Path):
+    # Backwards-compatible: omitting stagger_seconds keeps the prior behaviour.
+    config = load_config(_write(tmp_path, VALID_CONFIG))
+    assert config.settings.stagger_seconds == 0.0
+
+
 def test_unknown_provider_ref_rejected(tmp_path: Path):
     content = """
 [experiment]

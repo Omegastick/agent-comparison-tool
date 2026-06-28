@@ -104,6 +104,34 @@ def test_unpriced_model_reports_none(tmp_path: Path) -> None:
     assert row.usage.total_tokens == 1000  # tokens still recorded
 
 
+def test_dated_snapshot_id_falls_back_to_base_key(tmp_path: Path) -> None:
+    pricing = load_pricing_from_str(tmp_path)
+    trace = tmp_path / "trace.jsonl"
+    # Provider resolved the alias to a dated snapshot; it must still price.
+    _write_trace(trace, [_message_end("claude-opus-4-8-20260514", output=1000)])
+
+    row = summarize_run("opus-1", "opus", trace, pricing)
+
+    assert row.cost_usd is not None
+    assert abs(row.cost_usd - 0.025) < 1e-9
+
+
+def test_dotted_dated_snapshot_id_falls_back(tmp_path: Path) -> None:
+    pricing = load_pricing_from_str(tmp_path)
+    trace = tmp_path / "trace.jsonl"
+    _write_trace(trace, [_message_end("claude-opus-4-8-2026-05-14", output=1000)])
+
+    assert summarize_run("opus-1", "opus", trace, pricing).cost_usd is not None
+
+
+def test_unknown_model_still_unpriced_after_strip(tmp_path: Path) -> None:
+    pricing = load_pricing_from_str(tmp_path)
+    trace = tmp_path / "trace.jsonl"
+    _write_trace(trace, [_message_end("mystery-9.9-20260514", output=1000)])
+
+    assert summarize_run("x-1", "x", trace, pricing).cost_usd is None
+
+
 def test_empty_pricing_table_prices_nothing(tmp_path: Path) -> None:
     trace = tmp_path / "trace.jsonl"
     _write_trace(trace, [_message_end("claude-opus-4-8", output=1000)])

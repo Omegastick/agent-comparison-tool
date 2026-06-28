@@ -8,10 +8,15 @@ pricing for z.ai models and reports $0 for them.
 
 import csv
 import json
+import re
 import tomllib
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+
+# Trailing dated-snapshot suffix on a resolved model id, e.g. the ``-20260514``
+# or ``-2026-05-14`` a provider appends when an alias resolves to a pin.
+_DATE_SUFFIX_RE = re.compile(r"-(?:\d{8}|\d{4}-\d{2}-\d{2})$")
 
 
 class ModelPricing(BaseModel):
@@ -28,9 +33,23 @@ class Pricing(BaseModel):
 
     models: dict[str, ModelPricing] = Field(default_factory=dict)
 
+    def _rates_for(self, model: str) -> ModelPricing | None:
+        """Look up rates, tolerating a resolved id's trailing dated-snapshot suffix.
+
+        An exact match wins; failing that, a dated id (e.g. ``gpt-5.4-20260514``)
+        falls back to its undated base key so it still prices instead of silently
+        dropping to "not priced". A genuinely unknown model still returns ``None``.
+        """
+        rates = self.models.get(model)
+        if rates is None and model:
+            stripped = _DATE_SUFFIX_RE.sub("", model)
+            if stripped != model:
+                rates = self.models.get(stripped)
+        return rates
+
     def cost(self, usage: "Usage") -> float | None:
         """Cost in USD for the given usage, or ``None`` if the model is unpriced."""
-        rates = self.models.get(usage.model)
+        rates = self._rates_for(usage.model)
         if rates is None:
             return None
         return (
