@@ -1,4 +1,4 @@
-"""Experiment runner for orchestrating benchmark runs."""
+"""Experiment runner for orchestrating comparison runs."""
 
 import shutil
 import tempfile
@@ -16,6 +16,8 @@ from .display import ProgressDisplay, RunStatus
 
 class ExperimentRunner:
     """Orchestrates parallel comparison runs."""
+
+    ARTIFACTS = ("diff.patch", "trace.jsonl", "output.txt")
 
     def __init__(
         self,
@@ -55,7 +57,7 @@ class ExperimentRunner:
             else:
                 self._run_sequential(run_configs, results)
         finally:
-            self._collect_results(results, results_path, workspace_manager)
+            self._collect_results(results, results_path)
             self.display.stop()
             self.display.print_summary()
             self.container_manager.cleanup()
@@ -192,11 +194,8 @@ class ExperimentRunner:
         self.display.update_run(run_id, RunStatus.RUNNING)
         start_time = time.time()
 
-        def on_activity(activity: str) -> None:
-            self.display.update_activity(run_id, activity)
-
         try:
-            result = self.container_manager.run(config, activity_callback=on_activity)
+            result = self.container_manager.run(config)
             duration = time.time() - start_time
 
             status = RunStatus.COMPLETED if result.exit_code == 0 else RunStatus.FAILED
@@ -213,20 +212,24 @@ class ExperimentRunner:
         self,
         results: list[tuple[str, str, ContainerResult]],
         results_path: Path,
-        workspace_manager: WorkspaceManager,
     ) -> None:
-        """Collect and save results from all runs."""
+        """Collect the lean per-run artifacts (diff.patch, trace.jsonl, output.txt).
+
+        The container writes only these files to its workspace; the target repo
+        is cloned elsewhere so results stay small enough to commit and eyeball.
+        """
         for run_id, _agent_id, result in results:
             run_path = results_path / run_id
             run_path.mkdir(parents=True, exist_ok=True)
 
-            if result.workspace_path and result.workspace_path.exists():
-                workspace_manager.copy_results(run_id, run_path)
+            workspace = result.workspace_path
+            if not (workspace and workspace.exists()):
+                continue
 
-                # Nested .git dirs are treated as submodules when results are committed
-                repo_git = run_path / "repo" / ".git"
-                if repo_git.exists():
-                    shutil.rmtree(repo_git, ignore_errors=True)
+            for artifact in self.ARTIFACTS:
+                src = workspace / artifact
+                if src.exists():
+                    shutil.copy2(src, run_path / artifact)
 
     def _save_config(self, results_path: Path) -> None:
         """Save the experiment config to results."""

@@ -1,4 +1,4 @@
-"""Rich TUI display for benchmark progress."""
+"""Rich TUI display for comparison-run progress."""
 
 import time
 from collections.abc import Callable
@@ -22,7 +22,7 @@ class _DynamicRenderable:
 
 
 class RunStatus(Enum):
-    """Status of a benchmark run."""
+    """Status of a comparison run."""
 
     PENDING = "pending"
     RUNNING = "running"
@@ -33,7 +33,7 @@ class RunStatus(Enum):
 
 @dataclass
 class RunState:
-    """State of a single benchmark run."""
+    """State of a single comparison run."""
 
     run_id: str
     agent_id: str
@@ -42,7 +42,6 @@ class RunState:
     duration: float = 0.0
     started_at: float | None = None
     error: str | None = None
-    activity: str = ""
 
 
 @dataclass
@@ -109,14 +108,7 @@ class ProgressDisplay:
             run.started_at = time.monotonic()
         if status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.TIMEOUT):
             run.started_at = None
-            run.activity = ""
         self._refresh()
-
-    def update_activity(self, run_id: str, activity: str) -> None:
-        """Update the activity description of a running task."""
-        if self.state is None or run_id not in self.state.runs:
-            return
-        self.state.runs[run_id].activity = activity
 
     def _make_panel(self) -> Panel:
         """Create the display panel."""
@@ -129,7 +121,6 @@ class ProgressDisplay:
         table.add_column("#")
         table.add_column("Status")
         table.add_column("Duration")
-        table.add_column("Activity", max_width=40, no_wrap=True)
 
         for run in sorted(self.state.runs.values(), key=lambda r: r.run_id):
             status_style = {
@@ -147,7 +138,6 @@ class ProgressDisplay:
                 duration_str = f"{run.duration:.1f}s"
             else:
                 duration_str = "-"
-            activity_str = run.activity if run.status == RunStatus.RUNNING else ""
 
             table.add_row(
                 run.run_id,
@@ -155,7 +145,6 @@ class ProgressDisplay:
                 str(run.run_number),
                 f"[{status_style}]{run.status.value}[/]",
                 duration_str,
-                f"[dim]{activity_str}[/]",
             )
 
         progress_text = (
@@ -196,10 +185,6 @@ class ProgressDisplay:
         self.console.print(f"Total runs: {self.state.total_runs}")
         self.console.print(f"[green]Successful: {len(successful)}[/]")
         self.console.print(f"[red]Failed: {len(failed)}[/]")
-
-        if successful:
-            avg_duration = sum(r.duration for r in successful) / len(successful)
-            self.console.print(f"Average duration: {avg_duration:.1f}s")
 
         if failed:
             self.console.print()
