@@ -29,7 +29,7 @@ api_key = "$ANTHROPIC_API_KEY"
 api_key = "$OPENAI_API_KEY"
 
 [providers.zai]
-base_url = "https://api.z.ai/api/coding/paas/v4"
+base_url = "https://api.z.ai/api/paas/v4"
 api_key = "$ZAI_API_KEY"
 
 [[agents]]
